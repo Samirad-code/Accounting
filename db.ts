@@ -150,7 +150,8 @@ class Database {
 
   // --- Business Logic Methods ---
   addCategory(name: string) {
-    const category: Category = { id: 'cat-' + Date.now(), name };
+    // added Math.random() to avoid ID collision during bulk insert
+    const category: Category = { id: 'cat-' + Date.now() + '-' + Math.floor(Math.random() * 10000), name };
     this.data.categories.push(category);
     this.pushDoc('categories', category.id, category);
     this.notify();
@@ -180,6 +181,29 @@ class Database {
     this.notify();
   }
 
+  addProduct(product: Product) {
+    this.data.products.push(product);
+    this.pushDoc('products', product.id, product);
+    this.notify();
+  }
+
+  addProducts(products: Product[]) {
+    products.forEach((product, idx) => {
+      this.data.products.push(product);
+      this.pushDoc('products', product.id, product);
+    });
+    this.notify();
+  }
+
+  updateProduct(id: string, updates: Partial<Product>) {
+    const index = this.data.products.findIndex(p => p.id === id);
+    if (index !== -1) {
+      this.data.products[index] = { ...this.data.products[index], ...updates };
+      this.pushDoc('products', id, this.data.products[index]);
+      this.notify();
+    }
+  }
+
   addPurchase(purchase: Purchase) {
     this.data.purchases.push(purchase);
     this.pushDoc('purchases', purchase.id, purchase);
@@ -195,6 +219,54 @@ class Database {
         this.pushDoc('products', product.id, product);
       }
     });
+    this.notify();
+  }
+
+  updatePurchase(id: string, updatedPurchase: Purchase) {
+    const index = this.data.purchases.findIndex(p => p.id === id);
+    if (index === -1) throw new Error("سند خرید یافت نشد");
+
+    const oldPurchase = this.data.purchases[index];
+
+    // 1. برگرداندن تاثیرات فاکتور قبلی روی انبار و میانگین قیمت
+    oldPurchase.items.forEach(oldItem => {
+      const product = this.data.products.find(p => p.id === oldItem.productId);
+      if (product) {
+        const currentTotalCost = product.quantity * product.avgCost;
+        const oldItemTotalCost = oldItem.qty * oldItem.unitCost;
+        product.quantity -= oldItem.qty;
+        
+        if (product.quantity > 0) {
+           product.avgCost = Math.max(0, (currentTotalCost - oldItemTotalCost) / product.quantity);
+        } else {
+           product.quantity = 0;
+           product.avgCost = 0; // اگر موجودی صفر شد میانگین ریست شود
+        }
+      }
+    });
+
+    // 2. اعمال مقادیر جدید روی انبار
+    updatedPurchase.items.forEach(newItem => {
+      const product = this.data.products.find(p => p.id === newItem.productId);
+      if (product) {
+        const currentTotalCost = product.quantity * product.avgCost;
+        const newItemTotalCost = newItem.qty * newItem.unitCost;
+        product.quantity += newItem.qty;
+        product.avgCost = product.quantity > 0 ? (currentTotalCost + newItemTotalCost) / product.quantity : newItem.unitCost;
+        this.pushDoc('products', product.id, product);
+      }
+    });
+
+    // اطمینان از سینک شدن کالاهایی که در فاکتور قدیم بودند اما الان پاک شده‌اند
+    oldPurchase.items.forEach(oldItem => {
+        if (!updatedPurchase.items.find(i => i.productId === oldItem.productId)) {
+            const product = this.data.products.find(p => p.id === oldItem.productId);
+            if (product) this.pushDoc('products', product.id, product);
+        }
+    });
+
+    this.data.purchases[index] = updatedPurchase;
+    this.pushDoc('purchases', updatedPurchase.id, updatedPurchase);
     this.notify();
   }
 
@@ -315,21 +387,6 @@ class Database {
     if (index !== -1) {
       this.data.customers[index] = { ...this.data.customers[index], ...updates };
       this.pushDoc('customers', id, this.data.customers[index]);
-      this.notify();
-    }
-  }
-
-  addProduct(product: Product) {
-    this.data.products.push(product);
-    this.pushDoc('products', product.id, product);
-    this.notify();
-  }
-
-  updateProduct(id: string, updates: Partial<Product>) {
-    const index = this.data.products.findIndex(p => p.id === id);
-    if (index !== -1) {
-      this.data.products[index] = { ...this.data.products[index], ...updates };
-      this.pushDoc('products', id, this.data.products[index]);
       this.notify();
     }
   }

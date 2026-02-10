@@ -1,10 +1,10 @@
-
 import React, { useState, useMemo } from 'react';
 import { db } from '../db';
 import { Invoice, InvoiceItem, InvoiceType, Product, Customer, PaymentMethod } from '../types';
 import { formatCurrency, formatJalali, exportToPDF } from '../utils';
 import JalaliDatePicker from '../components/JalaliDatePicker';
 import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import SearchableProductSelect from '../components/SearchableProductSelect';
 
 const Invoices: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>(db.getInvoices());
@@ -269,37 +269,33 @@ const Invoices: React.FC = () => {
             </div>
           )}
 
-          <div className="border dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm bg-white dark:bg-slate-900">
-            <div className="overflow-x-auto">
+          <div className="border dark:border-slate-700 rounded-2xl shadow-sm bg-white dark:bg-slate-900">
+            <div className="overflow-x-auto pb-[150px]">
               <table className="w-full text-right min-w-[600px]">
                 <thead className="bg-slate-800 text-white text-xs">
                   <tr>
-                    <th className="p-3 md:p-4">کالا</th>
+                    <th className="p-3 md:p-4 rounded-tr-2xl">کالا</th>
                     <th className="p-3 md:p-4 w-24 text-center">تعداد</th>
                     <th className="p-3 md:p-4 text-center">قیمت واحد</th>
                     <th className="p-3 md:p-4 text-center">جمع</th>
-                    <th className="p-3 md:p-4 w-12"></th>
+                    <th className="p-3 md:p-4 w-12 rounded-tl-2xl"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-sm">
                   {newInv.items.map((item, idx) => (
                     <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="p-3 md:p-4">
-                        <select 
-                          required
-                          className="w-full p-2 border dark:border-slate-700 rounded-lg bg-transparent dark:text-white focus:ring-2 focus:ring-blue-500 outline-none text-xs"
+                        <SearchableProductSelect 
                           value={item.productId}
-                          onChange={e => handleItemChange(idx, 'productId', e.target.value)}
-                        >
-                          <option value="" className="dark:bg-slate-800">انتخاب کالا...</option>
-                          {products.map(p => <option key={p.id} value={p.id} className="dark:bg-slate-800">{p.name}</option>)}
-                        </select>
+                          onChange={val => handleItemChange(idx, 'productId', val)}
+                          products={products}
+                        />
                       </td>
                       <td className="p-3 md:p-4">
                         <input 
                           type="number" 
                           min="1" 
-                          className="w-full p-2 border dark:border-slate-700 rounded-lg text-center bg-white dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-xs" 
+                          className="w-full p-2.5 border dark:border-slate-700 rounded-lg text-center bg-white dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-xs" 
                           value={item.qty}
                           onChange={e => handleItemChange(idx, 'qty', parseInt(e.target.value) || 0)}
                         />
@@ -307,7 +303,7 @@ const Invoices: React.FC = () => {
                       <td className="p-3 md:p-4">
                         <input 
                           type="number" 
-                          className="w-full p-2 border dark:border-slate-700 rounded-lg text-center bg-white dark:bg-slate-800 dark:text-white font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none text-xs" 
+                          className="w-full p-2.5 border dark:border-slate-700 rounded-lg text-center bg-white dark:bg-slate-800 dark:text-white font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none text-xs" 
                           value={item.unitPrice}
                           onChange={e => handleItemChange(idx, 'unitPrice', parseInt(e.target.value) || 0)}
                         />
@@ -319,7 +315,7 @@ const Invoices: React.FC = () => {
                         <button 
                           type="button"
                           onClick={() => setNewInv({...newInv, items: newInv.items.filter((_, i) => i !== idx)})}
-                          className="text-red-400 hover:text-red-600 text-xl font-bold"
+                          className="text-red-400 hover:text-red-600 text-xl font-bold bg-red-50 dark:bg-red-900/20 w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
                         >×</button>
                       </td>
                     </tr>
@@ -327,7 +323,7 @@ const Invoices: React.FC = () => {
                 </tbody>
               </table>
             </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-700">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-700 rounded-b-2xl">
               <button type="button" onClick={handleAddItem} className="text-blue-600 dark:text-blue-400 font-bold text-xs hover:underline flex items-center gap-1">
                 <span>➕</span> افزودن سطر جدید
               </button>
@@ -373,7 +369,7 @@ const Invoices: React.FC = () => {
               </div>
               <button 
                 type="submit" 
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 md:py-4 rounded-xl font-bold text-base md:text-lg transition-transform active:scale-95"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 md:py-4 rounded-xl font-bold text-base md:text-lg transition-transform active:scale-95 shadow-lg shadow-blue-500/30"
               >
                 {editingInvoiceId ? '💾 ثبت تغییرات فاکتور' : '💾 تایید و صدور فاکتور'}
               </button>

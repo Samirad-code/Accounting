@@ -1,13 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { db } from '../db';
 import { Product, Category } from '../types';
 import { formatCurrency, getStockStatusColor } from '../utils';
+import * as XLSX from 'xlsx';
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>(db.getProducts());
   const categories = db.getCategories();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -113,6 +116,98 @@ const Products: React.FC = () => {
     setEditingProduct(null);
   };
 
+  // --- Excel Import Logic ---
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([{
+        'نام کالا': 'کیسه فریزر',
+        'برند': 'پنگوئن',
+        'دسته‌بندی': 'کیسه‌ها',
+        'کد کالا': 'P-101',
+        'موجودی': 100,
+        'حداقل موجودی': 10,
+        'قیمت خرید': 15000,
+        'قیمت خرده': 20000,
+        'قیمت عمده': 18000
+    }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    XLSX.writeFile(wb, "template.xlsx");
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        const newProducts: Product[] = [];
+        const newCategories = new Set<string>();
+
+        data.forEach((row: any, index: number) => {
+          // انعطاف‌پذیری در خواندن نام ستون‌ها
+          const name = row['نام کالا'] || row['نام'] || row['Name'] || row['name'];
+          if (!name) return; // اگر نام کالا نداشت این ردیف را نادیده بگیر
+
+          const brand = row['برند'] || row['شرکت'] || row['Brand'] || '';
+          const category = row['دسته‌بندی'] || row['دسته'] || row['Category'] || 'عمومی';
+          const internalCode = row['کد کالا'] || row['کد'] || row['Code'] || '';
+          const quantity = parseInt(row['موجودی'] || row['تعداد'] || row['Qty'] || row['Quantity']) || 0;
+          const lowStockThreshold = parseInt(row['حداقل موجودی'] || row['هشدار موجودی'] || row['Low Stock']) || 5;
+          const avgCost = parseFloat(row['قیمت خرید'] || row['قیمت پایه'] || row['Cost']) || 0;
+          const retailPrice = parseFloat(row['قیمت خرده'] || row['قیمت فروش'] || row['Retail']) || 0;
+          const wholesalePrice = parseFloat(row['قیمت عمده'] || row['Wholesale']) || 0;
+
+          newCategories.add(category);
+
+          newProducts.push({
+            id: `prod-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 5)}`,
+            name: String(name),
+            brand: String(brand),
+            category: String(category),
+            internalCode: String(internalCode),
+            quantity,
+            lowStockThreshold,
+            avgCost,
+            retailPrice,
+            wholesalePrice,
+            isActive: true,
+            createdAt: new Date().toISOString()
+          });
+        });
+
+        if (newProducts.length > 0) {
+          const existingCats = db.getCategories().map(c => c.name);
+          newCategories.forEach(cat => {
+            if (!existingCats.includes(cat)) {
+              db.addCategory(cat);
+              existingCats.push(cat); // جلوگیری از ثبت تکراری در طول حلقه
+            }
+          });
+          
+          db.addProducts(newProducts);
+          alert(`✅ تعداد ${newProducts.length} محصول با موفقیت از فایل وارد شد.`);
+          setProducts(db.getProducts());
+          setIsExcelModalOpen(false);
+        } else {
+          alert('❌ محصولی در فایل یافت نشد. لطفا مطمئن شوید که ستون "نام کالا" وجود دارد.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('❌ خطا در پردازش فایل. لطفا از قالب نمونه اکسل استفاده کنید.');
+      }
+    };
+    reader.readAsBinaryString(file);
+    // ریست کردن اینپوت تا در صورت انتخاب مجدد همان فایل، رویداد onChange اجرا شود
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -126,12 +221,25 @@ const Products: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button 
-          onClick={openAddModal}
-          className="bg-blue-600 text-white px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 active:scale-95 font-bold"
-        >
-          <span>+</span> محصول جدید
-        </button>
+        
+        <div className="flex gap-2 w-full md:w-auto">
+          <button 
+            onClick={() => setIsExcelModalOpen(true)}
+            className="flex-1 md:flex-none bg-green-600 text-white px-4 md:px-6 py-3 rounded-2xl hover:bg-green-700 transition-all shadow-lg shadow-green-500/20 flex items-center justify-center gap-2 active:scale-95 font-bold"
+          >
+            <span className="text-lg">📥</span> 
+            <span className="hidden sm:inline">ورود از اکسل</span>
+            <span className="sm:hidden">اکسل</span>
+          </button>
+          <button 
+            onClick={openAddModal}
+            className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-95 font-bold"
+          >
+            <span className="text-lg">+</span> 
+            <span className="hidden sm:inline">محصول جدید</span>
+            <span className="sm:hidden">جدید</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-2xl border dark:border-slate-700 shadow-sm flex flex-wrap items-center gap-6">
@@ -175,7 +283,7 @@ const Products: React.FC = () => {
       </div>
 
       <div className="overflow-x-auto border dark:border-slate-700 rounded-2xl shadow-sm bg-white dark:bg-slate-900">
-        <table className="w-full text-right">
+        <table className="w-full text-right min-w-[800px]">
           <thead className="bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-700 text-gray-500 dark:text-slate-400 font-bold uppercase text-xs">
             <tr>
               <th className="p-4">نام و کد کالا</th>
@@ -229,6 +337,7 @@ const Products: React.FC = () => {
         </table>
       </div>
 
+      {/* --- Add / Edit Modal --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 border dark:border-slate-700">
@@ -296,6 +405,53 @@ const Products: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* --- Excel Import Modal --- */}
+      {isExcelModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 border dark:border-slate-700">
+            <div className="bg-green-600 text-white p-6 flex justify-between items-center">
+              <h3 className="text-xl font-bold">ورود گروهی محصولات از اکسل</h3>
+              <button onClick={() => setIsExcelModalOpen(false)} className="text-2xl opacity-50 hover:opacity-100 transition-opacity">×</button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30 text-sm text-slate-700 dark:text-slate-300">
+                <p className="font-bold text-blue-800 dark:text-blue-400 mb-2">راهنمای بارگذاری:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>ابتدا قالب نمونه را دانلود کنید.</li>
+                  <li>اطلاعات محصولات خود را در قالب وارد کنید.</li>
+                  <li>فایل نهایی را انتخاب و آپلود نمایید.</li>
+                </ul>
+              </div>
+              
+              <button 
+                onClick={downloadTemplate}
+                className="w-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3 rounded-xl font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex justify-center items-center gap-2"
+              >
+                <span className="text-lg">📄</span> دانلود قالب اکسل نمونه
+              </button>
+
+              <div className="relative w-full">
+                <input 
+                  type="file" 
+                  accept=".xlsx, .xls, .csv" 
+                  ref={fileInputRef} 
+                  onChange={handleFileUpload} 
+                  className="hidden" 
+                  id="excel-upload"
+                />
+                <label 
+                  htmlFor="excel-upload"
+                  className="w-full bg-green-500 text-white py-4 rounded-xl font-bold flex justify-center items-center gap-2 cursor-pointer hover:bg-green-600 transition-colors shadow-lg shadow-green-500/30"
+                >
+                  <span className="text-xl">📤</span> انتخاب فایل و آپلود
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
