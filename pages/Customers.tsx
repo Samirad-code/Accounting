@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { db } from '../db';
-import { Customer, Payment, PaymentMethod } from '../types';
+import { Customer, Payment, PaymentMethod, Invoice } from '../types';
 import { formatCurrency, formatJalali } from '../utils';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const Customers: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>(db.getCustomers());
@@ -13,6 +14,7 @@ const Customers: React.FC = () => {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
 
   // Form states
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', note: '' });
@@ -95,14 +97,16 @@ const Customers: React.FC = () => {
         date: inv.date,
         description: `فاکتور شماره ${inv.invoiceNumber}`,
         amount: inv.totalAmount,
-        type: 'DEBIT' as const // Customer owes more
+        type: 'DEBIT' as const, // Customer owes more
+        originalInvoice: inv
       })),
       ...customerPayments.map(p => ({
         id: p.id,
         date: p.date,
         description: `دریافتی - ${p.note || (p.method === PaymentMethod.CASH ? 'نقدی' : 'کارت')}`,
         amount: p.amount,
-        type: 'CREDIT' as const // Customer owes less
+        type: 'CREDIT' as const, // Customer owes less
+        originalInvoice: undefined
       }))
     ];
 
@@ -226,11 +230,21 @@ const Customers: React.FC = () => {
                   <div className="space-y-3 max-h-[400px] overflow-auto pr-2 custom-scrollbar">
                     {ledger.length > 0 ? ledger.map((item, idx) => (
                       <div key={idx} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                        <div>
-                          <p className="text-sm font-medium">{item.description}</p>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium">{item.description}</p>
+                            {item.originalInvoice && (
+                              <button 
+                                onClick={() => setViewingInvoice(item.originalInvoice!)} 
+                                className="text-[10px] text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-md hover:bg-blue-800 transition-colors"
+                              >
+                                مشاهده فاکتور
+                              </button>
+                            )}
+                          </div>
                           <p className="text-[10px] text-slate-500">{formatJalali(item.date)}</p>
                         </div>
-                        <div className="text-left">
+                        <div className="text-left shrink-0">
                           <p className={`text-sm font-bold font-mono ${item.type === 'DEBIT' ? 'text-red-400' : 'text-green-400'}`}>
                             {item.type === 'DEBIT' ? '+' : '-'}{formatCurrency(item.amount)}
                           </p>
@@ -310,6 +324,9 @@ const Customers: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Shared Invoice Modal */}
+      <InvoiceDetailModal invoice={viewingInvoice} onClose={() => setViewingInvoice(null)} />
     </div>
   );
 };

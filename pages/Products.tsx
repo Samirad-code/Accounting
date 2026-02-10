@@ -22,6 +22,7 @@ const Products: React.FC = () => {
     wholesalePrice: 0,
     lowStockThreshold: 5,
     avgCost: 0,
+    quantity: 0,
   });
 
   const filteredProducts = useMemo(() => {
@@ -45,7 +46,8 @@ const Products: React.FC = () => {
       retailPrice: 0, 
       wholesalePrice: 0, 
       lowStockThreshold: 5,
-      avgCost: 0
+      avgCost: 0,
+      quantity: 0
     });
     setIsModalOpen(true);
   };
@@ -60,6 +62,7 @@ const Products: React.FC = () => {
       wholesalePrice: p.wholesalePrice,
       lowStockThreshold: p.lowStockThreshold,
       avgCost: p.avgCost,
+      quantity: p.quantity,
     });
     setIsModalOpen(true);
   };
@@ -72,7 +75,6 @@ const Products: React.FC = () => {
       const newProduct: Product = {
         id: Date.now().toString(),
         ...formData,
-        quantity: 0,
         isActive: true,
         createdAt: new Date().toISOString()
       };
@@ -185,7 +187,7 @@ const Products: React.FC = () => {
               <h3 className="text-xl font-bold">{editingProduct ? 'ویرایش محصول' : 'افزودن محصول جدید'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-2xl opacity-50 hover:opacity-100 transition-opacity">×</button>
             </div>
-            <form onSubmit={handleSubmit} className="p-8 space-y-4 max-h-[70vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-8 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">نام محصول</label>
@@ -206,24 +208,35 @@ const Products: React.FC = () => {
                   <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">کد اختصاصی</label>
                   <input type="text" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.internalCode} onChange={e => setFormData({...formData, internalCode: e.target.value})} />
                 </div>
+                
+                {/* بخش موجودی کالا اضافه شد */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">موجودی فعلی (عدد)</label>
+                  <input required type="number" min="0" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-blue-50 dark:bg-blue-900/20 dark:text-white outline-none font-bold text-blue-700 dark:text-blue-400" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})} />
+                </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">حداقل موجودی (هشدار)</label>
-                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.lowStockThreshold} onChange={e => setFormData({...formData, lowStockThreshold: parseInt(e.target.value) || 0})} />
+                  <input required type="number" min="0" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.lowStockThreshold} onChange={e => setFormData({...formData, lowStockThreshold: parseInt(e.target.value) || 0})} />
                 </div>
+
+                <div className="col-span-2 pt-2 pb-1 border-b dark:border-slate-700">
+                  <span className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase">قیمت‌گذاری</span>
+                </div>
+
                 <div>
                   <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت پایه / خرید (تومان)</label>
-                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono text-red-600 dark:text-red-400 font-bold" value={formData.avgCost} onChange={e => setFormData({...formData, avgCost: parseInt(e.target.value) || 0})} />
+                  <input required type="number" min="0" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono text-red-600 dark:text-red-400 font-bold" value={formData.avgCost} onChange={e => setFormData({...formData, avgCost: parseInt(e.target.value) || 0})} />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت خرده (تومان)</label>
-                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono text-blue-600 dark:text-blue-400 font-bold" value={formData.retailPrice} onChange={e => setFormData({...formData, retailPrice: parseInt(e.target.value) || 0})} />
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت خرده‌فروشی (تومان)</label>
+                  <input required type="number" min="0" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono text-blue-600 dark:text-blue-400 font-bold" value={formData.retailPrice} onChange={e => setFormData({...formData, retailPrice: parseInt(e.target.value) || 0})} />
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت عمده (تومان)</label>
-                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono text-indigo-600 dark:text-indigo-400 font-bold" value={formData.wholesalePrice} onChange={e => setFormData({...formData, wholesalePrice: parseInt(e.target.value) || 0})} />
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت عمده‌فروشی (تومان)</label>
+                  <input required type="number" min="0" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono text-indigo-600 dark:text-indigo-400 font-bold" value={formData.wholesalePrice} onChange={e => setFormData({...formData, wholesalePrice: parseInt(e.target.value) || 0})} />
                 </div>
               </div>
-              <div className="pt-4 flex gap-3 sticky bottom-0 bg-white dark:bg-slate-900 pb-2">
+              <div className="pt-6 flex gap-3 sticky bottom-0 bg-white dark:bg-slate-900 pb-2 border-t dark:border-slate-800 mt-4">
                 <button type="submit" className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-all">{editingProduct ? 'ذخیره تغییرات' : 'ثبت محصول'}</button>
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 p-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-slate-700">انصراف</button>
               </div>
