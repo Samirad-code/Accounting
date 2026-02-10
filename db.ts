@@ -29,7 +29,6 @@ class Database {
     this.loadLocal();
   }
 
-  // ثبت‌نام کامپوننت‌ها برای دریافت تغییرات دیتابیس (جهت رندر مجدد)
   subscribe(callback: SubscriptionCallback) {
     this.subscribers.push(callback);
     return () => {
@@ -37,8 +36,12 @@ class Database {
     };
   }
 
-  private notify() {
+  // اضافه شدن قابلیت تشخیص تغییرات برای بکاپ اضطراری
+  private notify(isMutation: boolean = true) {
     this.saveLocal();
+    if (isMutation) {
+      try { localStorage.setItem('plasticban_needs_backup', 'true'); } catch(e) {}
+    }
     this.subscribers.forEach(cb => cb());
   }
 
@@ -52,7 +55,6 @@ class Database {
       if (saved) {
         this.data = JSON.parse(saved);
       } else {
-        // Fallback for older versions
         const oldSaved = localStorage.getItem('plasticban_db_v2') || localStorage.getItem('plasticban_db');
         if (oldSaved) this.data = JSON.parse(oldSaved);
       }
@@ -74,14 +76,14 @@ class Database {
     if (configStr) {
       this.connectFirebase(JSON.parse(configStr));
     } else {
-      this.notify(); // Ready in offline mode
+      this.notify(false); // در لود اولیه نیازی به مارک کردن برای بکاپ نیست
     }
   }
 
   connectFirebase(config: any) {
     try {
       this.syncStatus = 'connecting';
-      this.notify();
+      this.notify(false);
       
       const app = initializeApp(config);
       this.dbInstance = getFirestore(app);
@@ -89,11 +91,11 @@ class Database {
       
       this.syncStatus = 'connected';
       localStorage.setItem('firebase_config', JSON.stringify(config));
-      this.notify();
+      this.notify(false);
     } catch (error) {
       console.error("Firebase Connection Error:", error);
       this.syncStatus = 'error';
-      this.notify();
+      this.notify(false);
     }
   }
 
@@ -101,7 +103,7 @@ class Database {
     this.dbInstance = null;
     this.syncStatus = 'offline';
     localStorage.removeItem('firebase_config');
-    this.notify();
+    this.notify(false);
   }
 
   private setupCloudListeners() {
@@ -114,16 +116,15 @@ class Database {
         const items: any[] = [];
         snapshot.forEach(doc => items.push(doc.data()));
         (this.data as any)[colName] = items;
-        this.notify();
+        this.notify(true); // دیتای جدید از کلود آمده، پس نیاز به بکاپ داریم
       }, (error) => {
         console.error(`Error syncing ${colName}:`, error);
         this.syncStatus = 'error';
-        this.notify();
+        this.notify(false);
       });
     });
   }
 
-  // --- Cloud Push Helpers ---
   private async pushDoc(colName: string, id: string, docData: any) {
     if (this.dbInstance) {
       try { await setDoc(doc(this.dbInstance, colName, id), docData); } 
@@ -138,7 +139,61 @@ class Database {
     }
   }
 
-  // --- Data Access Methods ---
+  exportBackup(): string {
+    return JSON.stringify(this.data);
+  }
+
+  importBackup(jsonString: string): boolean {
+    try {
+      const parsed = JSON.parse(jsonString);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.products)) {
+        this.data = {
+          products: parsed.products || [],
+          purchases: parsed.purchases || [],
+          customers: parsed.customers || [],
+          invoices: parsed.invoices || [],
+          payments: parsed.payments || [],
+          reminders: parsed.reminders || [],
+          todos: parsed.todos || [],
+          categories: parsed.categories || []
+        };
+        this.saveLocal();
+        this.notify(false);
+        return true;
+      }
+      return false;
+    } catch(e) {
+      console.error("Restore failed", e);
+      return false;
+    }
+  }
+
+  downloadBackupFile(filename = 'plasticban_backup.json') {
+    const blob = new Blob([this.exportBackup()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchorNode = document.createElement('a');
+    anchorNode.href = url;
+    anchorNode.download = filename;
+    document.body.appendChild(anchorNode);
+    anchorNode.click();
+    document.body.removeChild(anchorNode);
+    URL.revokeObjectURL(url);
+    
+    // وقتی بکاپ گرفته شد، فلگ نیاز به بکاپ را پاک می‌کنیم
+    try { localStorage.setItem('plasticban_needs_backup', 'false'); } catch(e) {}
+  }
+
+  triggerAutoBackup() {
+    const lastBackup = localStorage.getItem('plasticban_last_autobackup');
+    const now = Date.now();
+    if (!lastBackup || now - parseInt(lastBackup) > 86400000) {
+      setTimeout(() => {
+        this.downloadBackupFile(`plasticban_autobackup_${new Date().toISOString().split('T')[0]}.json`);
+        localStorage.setItem('plasticban_last_autobackup', now.toString());
+      }, 5000);
+    }
+  }
+
   getProducts() { return this.data.products; }
   getPurchases() { return this.data.purchases; }
   getCustomers() { return this.data.customers; }
@@ -148,9 +203,7 @@ class Database {
   getTodos() { return this.data.todos; }
   getCategories() { return this.data.categories; }
 
-  // --- Business Logic Methods ---
   addCategory(name: string) {
-    // added Math.random() to avoid ID collision during bulk insert
     const category: Category = { id: 'cat-' + Date.now() + '-' + Math.floor(Math.random() * 10000), name };
     this.data.categories.push(category);
     this.pushDoc('categories', category.id, category);
@@ -228,7 +281,6 @@ class Database {
 
     const oldPurchase = this.data.purchases[index];
 
-    // 1. برگرداندن تاثیرات فاکتور قبلی روی انبار و میانگین قیمت
     oldPurchase.items.forEach(oldItem => {
       const product = this.data.products.find(p => p.id === oldItem.productId);
       if (product) {
@@ -240,12 +292,11 @@ class Database {
            product.avgCost = Math.max(0, (currentTotalCost - oldItemTotalCost) / product.quantity);
         } else {
            product.quantity = 0;
-           product.avgCost = 0; // اگر موجودی صفر شد میانگین ریست شود
+           product.avgCost = 0;
         }
       }
     });
 
-    // 2. اعمال مقادیر جدید روی انبار
     updatedPurchase.items.forEach(newItem => {
       const product = this.data.products.find(p => p.id === newItem.productId);
       if (product) {
@@ -257,7 +308,6 @@ class Database {
       }
     });
 
-    // اطمینان از سینک شدن کالاهایی که در فاکتور قدیم بودند اما الان پاک شده‌اند
     oldPurchase.items.forEach(oldItem => {
         if (!updatedPurchase.items.find(i => i.productId === oldItem.productId)) {
             const product = this.data.products.find(p => p.id === oldItem.productId);

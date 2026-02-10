@@ -16,16 +16,36 @@ const App: React.FC = () => {
   const [dbTick, setDbTick] = useState(0);
 
   useEffect(() => {
-    // عضویت در موتور دیتابیس؛ هرگاه تغییری از سمت کلود دریافت شود، اپلیکیشن آپدیت می‌شود
     const unsubscribe = db.subscribe(() => {
        setDbTick(prev => prev + 1);
-       if (!isDbReady) setIsDbReady(true);
+       if (!isDbReady) {
+         setIsDbReady(true);
+         db.triggerAutoBackup();
+       }
     });
     
-    // راه‌اندازی اولیه
     db.init();
 
-    return () => unsubscribe();
+    // سیستم بکاپ اضطراری هنگام بسته شدن تب
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const needsBackup = localStorage.getItem('plasticban_needs_backup') === 'true';
+      if (needsBackup) {
+        // تلاش برای دانلود بکاپ اضطراری (ممکن است توسط مرورگرهای مدرن برای جلوگیری از اسپم بلاک شود)
+        db.downloadBackupFile(`plasticban_emergency_backup_${Date.now()}.json`);
+        
+        // فعال کردن هشدار استاندارد مرورگر (Leave Site?) 
+        // تا اگر مرورگر دانلود را مسدود کرد، کاربر بتواند دکمه Cancel را بزند و خودش بکاپ بگیرد
+        e.preventDefault();
+        e.returnValue = ''; 
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [isDbReady]);
 
   if (!isDbReady) {
@@ -39,8 +59,6 @@ const App: React.FC = () => {
     );
   }
 
-  // پاس دادن dbTick به عنوان کلید تغییر، باعث می‌شود تمامی کامپوننت‌های داخل Layout 
-  // در لحظه دریافت تغییرات ابری، آخرین دیتا را از db.ts استخراج کنند.
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard': return <Dashboard key={dbTick} />;
