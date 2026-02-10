@@ -143,6 +143,77 @@ class Database {
     this.save();
   }
 
+  updateInvoice(id: string, updatedInvoice: Invoice) {
+    const index = this.data.invoices.findIndex(inv => inv.id === id);
+    if (index === -1) throw new Error("فاکتور یافت نشد");
+
+    const oldInvoice = this.data.invoices[index];
+
+    // Calculate available quantities (current + what was in old invoice)
+    const availableQuantities = new Map<string, number>();
+    this.data.products.forEach(p => availableQuantities.set(p.id, p.quantity));
+    
+    oldInvoice.items.forEach(oldItem => {
+      const current = availableQuantities.get(oldItem.productId) || 0;
+      availableQuantities.set(oldItem.productId, current + oldItem.qty);
+    });
+
+    // Check new items against available quantities
+    for (const item of updatedInvoice.items) {
+      const available = availableQuantities.get(item.productId) || 0;
+      if (available < item.qty) {
+        const product = this.data.products.find(p => p.id === item.productId);
+        throw new Error(`موجودی کالا (${product?.name || 'نامشخص'}) کافی نیست.`);
+      }
+    }
+
+    // 1. Revert old invoice effects
+    oldInvoice.items.forEach(oldItem => {
+      const product = this.data.products.find(p => p.id === oldItem.productId);
+      if (product) product.quantity += oldItem.qty;
+    });
+
+    if (oldInvoice.customerId && oldInvoice.remainingAmount > 0) {
+      const customer = this.data.customers.find(c => c.id === oldInvoice.customerId);
+      if (customer) customer.balance += oldInvoice.remainingAmount;
+    }
+
+    // 2. Apply new invoice effects
+    updatedInvoice.items.forEach(newItem => {
+      const product = this.data.products.find(p => p.id === newItem.productId)!;
+      product.quantity -= newItem.qty;
+      newItem.costBasisAtSale = product.avgCost;
+    });
+
+    if (updatedInvoice.customerId && updatedInvoice.remainingAmount > 0) {
+      const customer = this.data.customers.find(c => c.id === updatedInvoice.customerId);
+      if (customer) customer.balance -= updatedInvoice.remainingAmount;
+    }
+
+    // 3. Update reminders
+    const reminderIndex = this.data.reminders.findIndex(r => r.message.includes(updatedInvoice.invoiceNumber));
+    if (reminderIndex !== -1) {
+       if (updatedInvoice.dueDate && updatedInvoice.remainingAmount > 0) {
+         this.data.reminders[reminderIndex].dueDate = updatedInvoice.dueDate;
+       } else {
+         this.data.reminders.splice(reminderIndex, 1);
+       }
+    } else if (updatedInvoice.dueDate && updatedInvoice.remainingAmount > 0 && updatedInvoice.customerId) {
+       const customer = this.data.customers.find(c => c.id === updatedInvoice.customerId);
+       this.data.reminders.push({
+          id: 'rem-' + Date.now(),
+          customerId: updatedInvoice.customerId,
+          customerName: customer?.name || 'نامشخص',
+          dueDate: updatedInvoice.dueDate,
+          message: `سررسید بدهی فاکتور ${updatedInvoice.invoiceNumber}`,
+          status: ReminderStatus.PENDING
+       });
+    }
+
+    this.data.invoices[index] = updatedInvoice;
+    this.save();
+  }
+
   addPayment(payment: Payment) {
     const customer = this.data.customers.find(c => c.id === payment.customerId);
     if (customer) customer.balance += payment.amount;
@@ -155,9 +226,25 @@ class Database {
     this.save();
   }
 
+  updateCustomer(id: string, updates: Partial<Customer>) {
+    const index = this.data.customers.findIndex(c => c.id === id);
+    if (index !== -1) {
+      this.data.customers[index] = { ...this.data.customers[index], ...updates };
+      this.save();
+    }
+  }
+
   addProduct(product: Product) {
     this.data.products.push(product);
     this.save();
+  }
+
+  updateProduct(id: string, updates: Partial<Product>) {
+    const index = this.data.products.findIndex(p => p.id === id);
+    if (index !== -1) {
+      this.data.products[index] = { ...this.data.products[index], ...updates };
+      this.save();
+    }
   }
 
   addTodo(text: string) {

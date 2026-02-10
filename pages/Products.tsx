@@ -7,7 +7,8 @@ import { formatCurrency, getStockStatusColor } from '../utils';
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>(db.getProducts());
   const categories = db.getCategories();
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -20,6 +21,7 @@ const Products: React.FC = () => {
     retailPrice: 0,
     wholesalePrice: 0,
     lowStockThreshold: 5,
+    avgCost: 0,
   });
 
   const filteredProducts = useMemo(() => {
@@ -34,27 +36,51 @@ const Products: React.FC = () => {
     });
   }, [products, searchTerm, categoryFilter, lowStockOnly]);
 
-  const handleAddProduct = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newProduct: Product = {
-      id: Date.now().toString(),
-      ...formData,
-      avgCost: 0,
-      quantity: 0,
-      isActive: true,
-      createdAt: new Date().toISOString()
-    };
-    db.addProduct(newProduct);
-    setProducts(db.getProducts());
-    setIsAddModalOpen(false);
+  const openAddModal = () => {
+    setEditingProduct(null);
     setFormData({ 
       name: '', 
       category: categories[0]?.name || '', 
       internalCode: '', 
       retailPrice: 0, 
       wholesalePrice: 0, 
-      lowStockThreshold: 5 
+      lowStockThreshold: 5,
+      avgCost: 0
     });
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (p: Product) => {
+    setEditingProduct(p);
+    setFormData({
+      name: p.name,
+      category: p.category,
+      internalCode: p.internalCode || '',
+      retailPrice: p.retailPrice,
+      wholesalePrice: p.wholesalePrice,
+      lowStockThreshold: p.lowStockThreshold,
+      avgCost: p.avgCost,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingProduct) {
+      db.updateProduct(editingProduct.id, formData);
+    } else {
+      const newProduct: Product = {
+        id: Date.now().toString(),
+        ...formData,
+        quantity: 0,
+        isActive: true,
+        createdAt: new Date().toISOString()
+      };
+      db.addProduct(newProduct);
+    }
+    setProducts(db.getProducts());
+    setIsModalOpen(false);
+    setEditingProduct(null);
   };
 
   return (
@@ -71,7 +97,7 @@ const Products: React.FC = () => {
           />
         </div>
         <button 
-          onClick={() => setIsAddModalOpen(true)}
+          onClick={openAddModal}
           className="bg-blue-600 text-white px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2 active:scale-95 font-bold"
         >
           <span>+</span> محصول جدید
@@ -109,9 +135,10 @@ const Products: React.FC = () => {
               <th className="p-4">نام و کد کالا</th>
               <th className="p-4">دسته‌بندی</th>
               <th className="p-4 text-center">موجودی</th>
-              <th className="p-4 text-center">قیمت خرید</th>
+              <th className="p-4 text-center">قیمت پایه (خرید)</th>
               <th className="p-4 text-center">قیمت خرده</th>
               <th className="p-4 text-center">قیمت عمده</th>
+              <th className="p-4 text-center">عملیات</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
@@ -132,24 +159,33 @@ const Products: React.FC = () => {
                 <td className="p-4 text-center text-gray-600 dark:text-slate-400 font-mono text-sm">{formatCurrency(p.avgCost)}</td>
                 <td className="p-4 text-center text-blue-600 dark:text-blue-400 font-bold font-mono">{formatCurrency(p.retailPrice)}</td>
                 <td className="p-4 text-center text-indigo-600 dark:text-indigo-400 font-bold font-mono">{formatCurrency(p.wholesalePrice)}</td>
+                <td className="p-4 text-center">
+                  <button 
+                    onClick={() => openEditModal(p)}
+                    className="p-1.5 text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-lg transition-colors text-sm"
+                    title="ویرایش کالا"
+                  >
+                    ✏️
+                  </button>
+                </td>
               </tr>
             )) : (
               <tr>
-                <td colSpan={6} className="p-20 text-center text-gray-400 italic">محصولی یافت نشد.</td>
+                <td colSpan={7} className="p-20 text-center text-gray-400 italic">محصولی یافت نشد.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {isAddModalOpen && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 border dark:border-slate-700">
             <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
-              <h3 className="text-xl font-bold">افزودن محصول جدید</h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-2xl opacity-50 hover:opacity-100 transition-opacity">×</button>
+              <h3 className="text-xl font-bold">{editingProduct ? 'ویرایش محصول' : 'افزودن محصول جدید'}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-2xl opacity-50 hover:opacity-100 transition-opacity">×</button>
             </div>
-            <form onSubmit={handleAddProduct} className="p-8 space-y-4">
+            <form onSubmit={handleSubmit} className="p-8 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">نام محصول</label>
@@ -171,21 +207,25 @@ const Products: React.FC = () => {
                   <input type="text" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.internalCode} onChange={e => setFormData({...formData, internalCode: e.target.value})} />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">حداقل موجودی</label>
-                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.lowStockThreshold} onChange={e => setFormData({...formData, lowStockThreshold: parseInt(e.target.value)})} />
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">حداقل موجودی (هشدار)</label>
+                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.lowStockThreshold} onChange={e => setFormData({...formData, lowStockThreshold: parseInt(e.target.value) || 0})} />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت خرده</label>
-                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono" value={formData.retailPrice} onChange={e => setFormData({...formData, retailPrice: parseInt(e.target.value)})} />
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت پایه / خرید (تومان)</label>
+                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono text-red-600 dark:text-red-400 font-bold" value={formData.avgCost} onChange={e => setFormData({...formData, avgCost: parseInt(e.target.value) || 0})} />
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت عمده</label>
-                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono" value={formData.wholesalePrice} onChange={e => setFormData({...formData, wholesalePrice: parseInt(e.target.value)})} />
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت خرده (تومان)</label>
+                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono text-blue-600 dark:text-blue-400 font-bold" value={formData.retailPrice} onChange={e => setFormData({...formData, retailPrice: parseInt(e.target.value) || 0})} />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">قیمت عمده (تومان)</label>
+                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-mono text-indigo-600 dark:text-indigo-400 font-bold" value={formData.wholesalePrice} onChange={e => setFormData({...formData, wholesalePrice: parseInt(e.target.value) || 0})} />
                 </div>
               </div>
-              <div className="pt-4 flex gap-3">
-                <button type="submit" className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-all">ثبت محصول</button>
-                <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 p-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-slate-700">انصراف</button>
+              <div className="pt-4 flex gap-3 sticky bottom-0 bg-white dark:bg-slate-900 pb-2">
+                <button type="submit" className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-all">{editingProduct ? 'ذخیره تغییرات' : 'ثبت محصول'}</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 p-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-slate-700">انصراف</button>
               </div>
             </form>
           </div>

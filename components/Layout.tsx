@@ -43,34 +43,41 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => 
   return (
     <div className={`flex flex-col md:flex-row min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-gray-50 text-slate-800'}`}>
       
-      {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white sticky top-0 z-[60] shadow-md">
-        <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 text-2xl">
-          {isSidebarOpen ? '✕' : '☰'}
+      {/* Mobile Header (z-40) */}
+      <header className="md:hidden flex items-center justify-between p-4 bg-slate-900 text-white sticky top-0 z-40 shadow-md">
+        <button onClick={() => setSidebarOpen(true)} className="p-2 text-2xl">
+          ☰
         </button>
         <h1 className="text-lg font-bold text-blue-400">پلاستیک‌بان</h1>
         <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">م</div>
       </header>
 
-      {/* Backdrop for mobile */}
+      {/* Backdrop for mobile (z-50) */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 md:hidden transition-opacity"
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar (z-[60]) */}
       <aside className={`
-        fixed inset-y-0 right-0 z-50 w-64 bg-slate-900 dark:bg-slate-950 text-white transition-transform duration-300 transform 
+        fixed inset-y-0 right-0 z-[60] w-64 bg-slate-900 dark:bg-slate-950 text-white transition-transform duration-300 transform 
         ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} 
-        md:translate-x-0 md:static md:w-64 md:flex md:flex-col md:h-screen md:sticky md:top-0 shadow-xl border-l border-slate-800
+        md:translate-x-0 md:static md:w-64 md:flex md:flex-col md:h-screen md:sticky md:top-0 shadow-2xl md:shadow-xl border-l border-slate-800
       `}>
-        <div className="p-6 hidden md:flex items-center justify-between border-b border-slate-800">
+        {/* Sidebar Header with Close Button for Mobile */}
+        <div className="p-5 md:p-6 flex items-center justify-between border-b border-slate-800">
           <h1 className="text-xl font-bold text-blue-400">پلاستیک‌بان</h1>
+          <button 
+            onClick={() => setSidebarOpen(false)} 
+            className="md:hidden p-2 text-xl text-slate-400 hover:text-white transition-colors"
+          >
+            ✕
+          </button>
         </div>
         
-        <nav className="flex-1 mt-4 overflow-y-auto">
+        <nav className="flex-1 mt-2 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => (
             <button
               key={item.id}

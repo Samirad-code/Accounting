@@ -8,7 +8,10 @@ const Customers: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>(db.getCustomers());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   // Form states
@@ -23,16 +26,36 @@ const Customers: React.FC = () => {
     customers.reduce((acc, c) => acc + (c.balance < 0 ? Math.abs(c.balance) : 0), 0)
   , [customers]);
 
-  const handleAddCustomer = (e: React.FormEvent) => {
+  const openAddCustomer = () => {
+    setEditingCustomer(null);
+    setNewCustomer({ name: '', phone: '', note: '' });
+    setIsCustomerModalOpen(true);
+  };
+
+  const openEditCustomer = () => {
+    if (!selectedCustomer) return;
+    setEditingCustomer(selectedCustomer);
+    setNewCustomer({ name: selectedCustomer.name, phone: selectedCustomer.phone, note: selectedCustomer.note || '' });
+    setIsCustomerModalOpen(true);
+  };
+
+  const handleCustomerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const customer: Customer = {
-      id: 'c' + Date.now(),
-      ...newCustomer,
-      balance: 0
-    };
-    db.addCustomer(customer);
+    if (editingCustomer) {
+      db.updateCustomer(editingCustomer.id, newCustomer);
+      const updated = db.getCustomers().find(c => c.id === editingCustomer.id);
+      if (updated && selectedCustomer?.id === updated.id) setSelectedCustomer(updated);
+    } else {
+      const customer: Customer = {
+        id: 'c' + Date.now(),
+        ...newCustomer,
+        balance: 0
+      };
+      db.addCustomer(customer);
+    }
     setCustomers(db.getCustomers());
-    setIsAddModalOpen(false);
+    setIsCustomerModalOpen(false);
+    setEditingCustomer(null);
     setNewCustomer({ name: '', phone: '', note: '' });
   };
 
@@ -121,13 +144,13 @@ const Customers: React.FC = () => {
               />
             </div>
             <button 
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={openAddCustomer}
               className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors whitespace-nowrap"
             >
               + مشتری جدید
             </button>
           </div>
-          <div className="max-h-[600px] overflow-auto">
+          <div className="max-h-[600px] overflow-auto custom-scrollbar">
             <table className="w-full text-right">
               <thead className="bg-gray-100 sticky top-0 z-10 text-xs font-bold text-gray-500">
                 <tr>
@@ -172,12 +195,21 @@ const Customers: React.FC = () => {
                 <div>
                   <h4 className="text-xl font-bold">{selectedCustomer.name}</h4>
                   <p className="text-slate-400 text-sm font-mono mt-1">{selectedCustomer.phone}</p>
+                  {selectedCustomer.note && <p className="text-slate-400 text-xs mt-2 italic">{selectedCustomer.note}</p>}
                 </div>
-                <div className="text-left">
-                  <p className="text-xs text-slate-500">مانده فعلی</p>
-                  <p className={`text-xl font-bold ${selectedCustomer.balance < 0 ? 'text-orange-400' : 'text-green-400'}`}>
-                    {formatCurrency(Math.abs(selectedCustomer.balance))}
-                  </p>
+                <div className="flex flex-col items-end gap-3">
+                  <div className="text-left">
+                    <p className="text-xs text-slate-500">مانده فعلی</p>
+                    <p className={`text-xl font-bold ${selectedCustomer.balance < 0 ? 'text-orange-400' : 'text-green-400'}`}>
+                      {formatCurrency(Math.abs(selectedCustomer.balance))}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={openEditCustomer}
+                    className="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg transition-colors border border-slate-600"
+                  >
+                    ✏️ ویرایش
+                  </button>
                 </div>
               </div>
 
@@ -191,7 +223,7 @@ const Customers: React.FC = () => {
 
                 <div className="space-y-4">
                   <h5 className="text-sm font-bold text-slate-400 border-b border-slate-700 pb-2">تاریخچه تراکنش‌ها (دفتر کل)</h5>
-                  <div className="space-y-3 max-h-[400px] overflow-auto pr-2">
+                  <div className="space-y-3 max-h-[400px] overflow-auto pr-2 custom-scrollbar">
                     {ledger.length > 0 ? ledger.map((item, idx) => (
                       <div key={idx} className="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
                         <div>
@@ -220,15 +252,15 @@ const Customers: React.FC = () => {
         </section>
       </div>
 
-      {/* Add Customer Modal */}
-      {isAddModalOpen && (
+      {/* Add/Edit Customer Modal */}
+      {isCustomerModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
             <div className="bg-blue-600 text-white p-4 font-bold flex justify-between">
-              <span>افزودن مشتری جدید</span>
-              <button onClick={() => setIsAddModalOpen(false)}>×</button>
+              <span>{editingCustomer ? 'ویرایش اطلاعات مشتری' : 'افزودن مشتری جدید'}</span>
+              <button onClick={() => setIsCustomerModalOpen(false)}>×</button>
             </div>
-            <form onSubmit={handleAddCustomer} className="p-6 space-y-4">
+            <form onSubmit={handleCustomerSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-bold mb-1">نام و نام خانوادگی</label>
                 <input required className="w-full p-2 border rounded-xl" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} />
@@ -237,7 +269,13 @@ const Customers: React.FC = () => {
                 <label className="block text-sm font-bold mb-1">شماره تماس</label>
                 <input required className="w-full p-2 border rounded-xl font-mono text-left" dir="ltr" value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} />
               </div>
-              <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">ثبت مشتری</button>
+              <div>
+                <label className="block text-sm font-bold mb-1">یادداشت</label>
+                <textarea className="w-full p-2 border rounded-xl" rows={2} value={newCustomer.note} onChange={e => setNewCustomer({...newCustomer, note: e.target.value})} placeholder="آدرس یا توضیحات اضافی..." />
+              </div>
+              <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">
+                {editingCustomer ? 'ذخیره تغییرات' : 'ثبت مشتری'}
+              </button>
             </form>
           </div>
         </div>

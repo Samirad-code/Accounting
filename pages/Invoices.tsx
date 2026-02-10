@@ -8,6 +8,7 @@ import JalaliDatePicker from '../components/JalaliDatePicker';
 const Invoices: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>(db.getInvoices());
   const [isAddMode, setIsAddMode] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   
   // Filtering states
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,7 +45,7 @@ const Invoices: React.FC = () => {
 
   const finalTotal = subTotal - newInv.discountTotal;
   
-  // Auto-adjust paidAmount based on paymentMethod
+  // Auto-adjust paidAmount based on paymentMethod, only if not mixed
   useMemo(() => {
      if (newInv.paymentMethod === PaymentMethod.CASH || newInv.paymentMethod === PaymentMethod.CARD) {
         setNewInv(prev => ({ ...prev, paidAmount: finalTotal }));
@@ -92,6 +93,24 @@ const Invoices: React.FC = () => {
     setNewInv({ ...newInv, items: updatedItems });
   };
 
+  const handleEditInvoiceClick = (inv: Invoice) => {
+    let method = PaymentMethod.MIXED;
+    if (inv.paidAmount === inv.totalAmount) method = PaymentMethod.CASH; // guess
+    if (inv.paidAmount === 0) method = PaymentMethod.DEBT;
+
+    setNewInv({
+      type: inv.type,
+      customerId: inv.customerId || '',
+      items: inv.items.map(i => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice })),
+      paidAmount: inv.paidAmount,
+      discountTotal: inv.discountTotal,
+      paymentMethod: method,
+      dueDate: inv.dueDate || ''
+    });
+    setEditingInvoiceId(inv.id);
+    setIsAddMode(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newInv.items.some(i => !i.productId)) {
@@ -108,14 +127,14 @@ const Invoices: React.FC = () => {
           qty: item.qty,
           unitPrice: item.unitPrice,
           discount: 0,
-          costBasisAtSale: 0 
+          costBasisAtSale: prod.avgCost 
         };
       });
 
       const invoice: Invoice = {
-        id: Date.now().toString(),
-        invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
-        date: new Date().toISOString(),
+        id: editingInvoiceId || Date.now().toString(),
+        invoiceNumber: editingInvoiceId ? invoices.find(i => i.id === editingInvoiceId)!.invoiceNumber : `INV-${Date.now().toString().slice(-6)}`,
+        date: editingInvoiceId ? invoices.find(i => i.id === editingInvoiceId)!.date : new Date().toISOString(),
         type: newInv.type,
         customerId: newInv.customerId || undefined,
         customerName: customers.find(c => c.id === newInv.customerId)?.name,
@@ -128,10 +147,17 @@ const Invoices: React.FC = () => {
         status: 'ACTIVE'
       };
 
-      db.createInvoice(invoice);
+      if (editingInvoiceId) {
+        db.updateInvoice(editingInvoiceId, invoice);
+        alert('فاکتور با موفقیت ویرایش شد');
+      } else {
+        db.createInvoice(invoice);
+        alert('فاکتور با موفقیت ثبت شد');
+      }
+      
       setInvoices(db.getInvoices());
       setIsAddMode(false);
-      alert('فاکتور با موفقیت ثبت شد');
+      setEditingInvoiceId(null);
     } catch (err: any) {
       alert(err.message);
     }
@@ -141,8 +167,10 @@ const Invoices: React.FC = () => {
     return (
       <div className="space-y-6 animate-in fade-in duration-300 pb-20">
         <div className="flex justify-between items-center border-b dark:border-slate-800 pb-4">
-          <h3 className="text-lg md:text-xl font-bold text-slate-800 dark:text-white">صدور فاکتور جدید</h3>
-          <button onClick={() => setIsAddMode(false)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 md:px-4 md:py-2 rounded-xl transition-colors font-bold text-sm">لغو</button>
+          <h3 className="text-lg md:text-xl font-bold text-slate-800 dark:text-white">
+            {editingInvoiceId ? 'ویرایش فاکتور' : 'صدور فاکتور جدید'}
+          </h3>
+          <button onClick={() => { setIsAddMode(false); setEditingInvoiceId(null); }} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 md:px-4 md:py-2 rounded-xl transition-colors font-bold text-sm">لغو</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -178,11 +206,12 @@ const Invoices: React.FC = () => {
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1 px-1">روش تسویه</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-1">
                  {[
                    { id: PaymentMethod.CASH, label: 'نقدی' },
                    { id: PaymentMethod.CARD, label: 'کارت' },
-                   { id: PaymentMethod.DEBT, label: 'نسیه' }
+                   { id: PaymentMethod.DEBT, label: 'نسیه' },
+                   { id: PaymentMethod.MIXED, label: 'ترکیبی' }
                  ].map(method => (
                    <button
                      key={method.id}
@@ -244,7 +273,7 @@ const Invoices: React.FC = () => {
                           min="1" 
                           className="w-full p-2 border dark:border-slate-700 rounded-lg text-center bg-white dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-xs" 
                           value={item.qty}
-                          onChange={e => handleItemChange(idx, 'qty', parseInt(e.target.value))}
+                          onChange={e => handleItemChange(idx, 'qty', parseInt(e.target.value) || 0)}
                         />
                       </td>
                       <td className="p-3 md:p-4">
@@ -252,7 +281,7 @@ const Invoices: React.FC = () => {
                           type="number" 
                           className="w-full p-2 border dark:border-slate-700 rounded-lg text-center bg-white dark:bg-slate-800 dark:text-white font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none text-xs" 
                           value={item.unitPrice}
-                          onChange={e => handleItemChange(idx, 'unitPrice', parseInt(e.target.value))}
+                          onChange={e => handleItemChange(idx, 'unitPrice', parseInt(e.target.value) || 0)}
                         />
                       </td>
                       <td className="p-3 md:p-4 text-center font-bold text-slate-700 dark:text-slate-300 font-mono text-xs">
@@ -318,7 +347,7 @@ const Invoices: React.FC = () => {
                 type="submit" 
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 md:py-4 rounded-xl font-bold text-base md:text-lg transition-transform active:scale-95"
               >
-                💾 تایید و صدور فاکتور
+                {editingInvoiceId ? '💾 ثبت تغییرات فاکتور' : '💾 تایید و صدور فاکتور'}
               </button>
             </div>
           </div>
@@ -332,7 +361,7 @@ const Invoices: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h3 className="text-lg md:text-xl font-bold text-slate-800 dark:text-white">فاکتورها</h3>
         <button 
-          onClick={() => setIsAddMode(true)} 
+          onClick={() => { setIsAddMode(true); setEditingInvoiceId(null); }} 
           className="w-full md:w-auto bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 font-bold"
         >
           <span>➕</span> صدور فاکتور جدید
@@ -392,7 +421,7 @@ const Invoices: React.FC = () => {
               <th className="p-3 md:p-4 text-center">نوع</th>
               <th className="p-3 md:p-4 text-center">مبلغ کل</th>
               <th className="p-3 md:p-4 text-center">وضعیت</th>
-              <th className="p-3 md:p-4"></th>
+              <th className="p-3 md:p-4 text-center">عملیات</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-sm">
@@ -414,10 +443,16 @@ const Invoices: React.FC = () => {
                     <span className="text-red-500 font-bold font-mono text-[10px]">{formatCurrency(inv.remainingAmount)}</span>
                   )}
                 </td>
-                <td className="p-3 md:p-4 text-center">
+                <td className="p-3 md:p-4 text-center flex gap-1 justify-center">
+                  <button 
+                    onClick={() => handleEditInvoiceClick(inv)}
+                    className="p-1.5 text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                    title="ویرایش فاکتور"
+                  >✏️</button>
                   <button 
                     onClick={() => exportToPDF(`invoice-${inv.id}`, `invoice-${inv.invoiceNumber}`)} 
-                    className="p-1.5 text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-lg"
+                    className="p-1.5 text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                    title="چاپ فاکتور"
                   >🖨️</button>
                 </td>
               </tr>
