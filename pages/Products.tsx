@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { db } from '../db';
 import { Product, Category } from '../types';
@@ -12,10 +11,12 @@ const Products: React.FC = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('name_asc');
   const [lowStockOnly, setLowStockOnly] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
+    brand: '',
     category: categories[0]?.name || '',
     internalCode: '',
     retailPrice: 0,
@@ -26,21 +27,47 @@ const Products: React.FC = () => {
   });
 
   const filteredProducts = useMemo(() => {
-    return products.filter(p => {
+    // 1. فیلتر کردن
+    let result = products.filter(p => {
       const matchSearch = 
         p.name.includes(searchTerm) || 
         p.id.includes(searchTerm) || 
-        (p.internalCode && p.internalCode.includes(searchTerm));
+        (p.internalCode && p.internalCode.includes(searchTerm)) ||
+        (p.brand && p.brand.includes(searchTerm)); // قابلیت سرچ بر اساس برند
+      
       const matchCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
       const matchLowStock = !lowStockOnly || p.quantity <= p.lowStockThreshold;
       return matchSearch && matchCategory && matchLowStock;
     });
-  }, [products, searchTerm, categoryFilter, lowStockOnly]);
+
+    // 2. مرتب‌سازی
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'name_asc': 
+          return a.name.localeCompare(b.name, 'fa');
+        case 'name_desc': 
+          return b.name.localeCompare(a.name, 'fa');
+        case 'category_asc': 
+          return a.category.localeCompare(b.category, 'fa');
+        case 'brand_asc': 
+          return (a.brand || '').localeCompare(b.brand || '', 'fa');
+        case 'qty_desc': 
+          return b.quantity - a.quantity;
+        case 'qty_asc': 
+          return a.quantity - b.quantity;
+        default: 
+          return 0;
+      }
+    });
+
+    return result;
+  }, [products, searchTerm, categoryFilter, lowStockOnly, sortBy]);
 
   const openAddModal = () => {
     setEditingProduct(null);
     setFormData({ 
       name: '', 
+      brand: '',
       category: categories[0]?.name || '', 
       internalCode: '', 
       retailPrice: 0, 
@@ -56,6 +83,7 @@ const Products: React.FC = () => {
     setEditingProduct(p);
     setFormData({
       name: p.name,
+      brand: p.brand || '',
       category: p.category,
       internalCode: p.internalCode || '',
       retailPrice: p.retailPrice,
@@ -92,7 +120,7 @@ const Products: React.FC = () => {
           <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400">🔍</span>
           <input 
             type="text" 
-            placeholder="جستجو کالا یا کد..." 
+            placeholder="جستجو کالا، برند یا کد..." 
             className="w-full pr-10 pl-4 py-3 border dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm bg-white dark:bg-slate-800 dark:text-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -119,6 +147,22 @@ const Products: React.FC = () => {
           </select>
         </div>
 
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-400 dark:text-slate-500">مرتب‌سازی:</span>
+          <select 
+            className="text-sm p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="name_asc">الفبا (الف تا ی)</option>
+            <option value="name_desc">الفبا (ی تا الف)</option>
+            <option value="category_asc">دسته‌بندی</option>
+            <option value="brand_asc">برند کالا</option>
+            <option value="qty_desc">موجودی (بیشترین)</option>
+            <option value="qty_asc">موجودی (کمترین)</option>
+          </select>
+        </div>
+
         <label className="flex items-center gap-2 cursor-pointer group">
           <input 
             type="checkbox" 
@@ -135,7 +179,7 @@ const Products: React.FC = () => {
           <thead className="bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-700 text-gray-500 dark:text-slate-400 font-bold uppercase text-xs">
             <tr>
               <th className="p-4">نام و کد کالا</th>
-              <th className="p-4">دسته‌بندی</th>
+              <th className="p-4">دسته‌بندی و برند</th>
               <th className="p-4 text-center">موجودی</th>
               <th className="p-4 text-center">قیمت پایه (خرید)</th>
               <th className="p-4 text-center">قیمت خرده</th>
@@ -153,7 +197,12 @@ const Products: React.FC = () => {
                   </div>
                 </td>
                 <td className="p-4">
-                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[10px] font-bold">{p.category}</span>
+                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[10px] font-bold block w-max">{p.category}</span>
+                  {p.brand && (
+                    <span className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold block w-max mt-1">
+                      برند: {p.brand}
+                    </span>
+                  )}
                 </td>
                 <td className={`p-4 text-center ${getStockStatusColor(p.quantity, p.lowStockThreshold)} font-bold`}>
                   {p.quantity} <span className="text-[10px] font-normal">عدد</span>
@@ -189,9 +238,13 @@ const Products: React.FC = () => {
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
+                <div className="col-span-2 md:col-span-1">
                   <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">نام محصول</label>
                   <input required type="text" className="w-full p-3 border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 dark:text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">برند / شرکت سازنده</label>
+                  <input type="text" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">دسته‌بندی کالا</label>
@@ -209,7 +262,6 @@ const Products: React.FC = () => {
                   <input type="text" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.internalCode} onChange={e => setFormData({...formData, internalCode: e.target.value})} />
                 </div>
                 
-                {/* بخش موجودی کالا اضافه شد */}
                 <div>
                   <label className="block text-sm font-bold text-gray-700 dark:text-slate-300 mb-1">موجودی فعلی (عدد)</label>
                   <input required type="number" min="0" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-blue-50 dark:bg-blue-900/20 dark:text-white outline-none font-bold text-blue-700 dark:text-blue-400" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})} />

@@ -1,4 +1,3 @@
-
 export enum InvoiceType {
   RETAIL = 'RETAIL',
   WHOLESALE = 'WHOLESALE'
@@ -32,6 +31,7 @@ export interface Category {
 export interface Product {
   id: string;
   name: string;
+  brand?: string;
   category: string;
   internalCode?: string;
   barcode?: string;

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS products (
     id TEXT PRIMARY KEY,
     name TEXT,
+    brand TEXT,
     category TEXT,
     internalCode TEXT,
     barcode TEXT,
