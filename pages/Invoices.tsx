@@ -24,6 +24,7 @@ const Invoices: React.FC = () => {
 
   // New Invoice State
   const [newInv, setNewInv] = useState<{
+    date: string;
     type: InvoiceType;
     customerId: string;
     items: { productId: string; qty: number; unitPrice: number }[];
@@ -32,6 +33,7 @@ const Invoices: React.FC = () => {
     paymentMethod: PaymentMethod;
     dueDate: string;
   }>({
+    date: new Date().toISOString(),
     type: InvoiceType.RETAIL,
     customerId: '',
     items: [{ productId: '', qty: 1, unitPrice: 0 }],
@@ -76,6 +78,21 @@ const Invoices: React.FC = () => {
     });
   }, [invoices, searchTerm, typeFilter, customerFilter, startDate, endDate]);
 
+  const handleOpenAddMode = () => {
+    setNewInv({
+      date: new Date().toISOString(),
+      type: InvoiceType.RETAIL,
+      customerId: '',
+      items: [{ productId: '', qty: 1, unitPrice: 0 }],
+      paidAmount: 0,
+      discountTotal: 0,
+      paymentMethod: PaymentMethod.CASH,
+      dueDate: ''
+    });
+    setEditingInvoiceId(null);
+    setIsAddMode(true);
+  };
+
   const handleAddItem = () => {
     setNewInv({ ...newInv, items: [...newInv.items, { productId: '', qty: 1, unitPrice: 0 }] });
   };
@@ -101,6 +118,7 @@ const Invoices: React.FC = () => {
     if (inv.paidAmount === 0) method = PaymentMethod.DEBT;
 
     setNewInv({
+      date: inv.date,
       type: inv.type,
       customerId: inv.customerId || '',
       items: inv.items.map(i => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice })),
@@ -136,7 +154,7 @@ const Invoices: React.FC = () => {
       const invoice: Invoice = {
         id: editingInvoiceId || Date.now().toString(),
         invoiceNumber: editingInvoiceId ? invoices.find(i => i.id === editingInvoiceId)!.invoiceNumber : `INV-${Date.now().toString().slice(-6)}`,
-        date: editingInvoiceId ? invoices.find(i => i.id === editingInvoiceId)!.date : new Date().toISOString(),
+        date: newInv.date, // Use the selected date
         type: newInv.type,
         customerId: newInv.customerId || undefined,
         customerName: customers.find(c => c.id === newInv.customerId)?.name,
@@ -176,7 +194,15 @@ const Invoices: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/30 dark:bg-blue-900/10 p-4 md:p-6 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-blue-50/30 dark:bg-blue-900/10 p-4 md:p-6 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+            <div>
+              <JalaliDatePicker 
+                label="تاریخ فاکتور"
+                className="w-full [&>div]:p-2.5 [&>div]:md:p-3 [&>div]:shadow-sm"
+                value={newInv.date}
+                onChange={val => setNewInv({ ...newInv, date: val })}
+              />
+            </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1 px-1">نوع فاکتور</label>
               <select 
@@ -208,7 +234,7 @@ const Invoices: React.FC = () => {
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-slate-300 mb-1 px-1">روش تسویه</label>
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-4 gap-1 h-[42px] md:h-[46px]">
                  {[
                    { id: PaymentMethod.CASH, label: 'نقدی' },
                    { id: PaymentMethod.CARD, label: 'کارت' },
@@ -219,7 +245,7 @@ const Invoices: React.FC = () => {
                      key={method.id}
                      type="button"
                      onClick={() => setNewInv({ ...newInv, paymentMethod: method.id as PaymentMethod })}
-                     className={`py-2 px-1 rounded-lg text-xs font-bold border transition-all ${newInv.paymentMethod === method.id ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                     className={`rounded-lg text-xs font-bold border transition-all ${newInv.paymentMethod === method.id ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
                    >
                      {method.label}
                    </button>
@@ -363,7 +389,7 @@ const Invoices: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h3 className="text-lg md:text-xl font-bold text-slate-800 dark:text-white">فاکتورها</h3>
         <button 
-          onClick={() => { setIsAddMode(true); setEditingInvoiceId(null); }} 
+          onClick={handleOpenAddMode} 
           className="w-full md:w-auto bg-blue-600 text-white px-8 py-3 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 font-bold"
         >
           <span>➕</span> صدور فاکتور جدید

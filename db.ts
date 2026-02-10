@@ -1,7 +1,6 @@
-
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, onSnapshot, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { Product, Purchase, Customer, Invoice, Payment, Reminder, Todo, Category, InvoiceType, ReminderStatus } from './types';
-
-const STORAGE_KEY = 'plastic_ban_db_v1';
 
 interface DBStructure {
   products: Product[];
@@ -14,54 +13,132 @@ interface DBStructure {
   categories: Category[];
 }
 
-const INITIAL_CATEGORIES = [
-  "سطل زباله پدالی", "جعبه صنعتی", "صندوق چرخدار", "نظم دهنده و فایل کشو کریستالی",
-  "زمین شوی", "یدک محصولات", "دسته های زمین شوی", "جاروب و برس ها",
-  "سطل و توالت شوی ها", "آب جمع کن", "شیشه شوی", "دستمال ها و گردگیر ها",
-  "نظافت صنعتی", "سطل پلاستیکی درب دار", "پارچ", "سبد و جانانی",
-  "صندلی و چهارپایه", "تخته کار و تخته گوشت", "سبد پلاستیکی لبنیات",
-  "مخزن آب پلی اتیلن", "وان پلاستیکی صنعتی", "ادویه پاش پلاستیکی",
-  "پالت ابزار پلاستیکی", "پالت ابزار پلاستیکی پایه دار", "پالت ابزار پلاستیکی کشویی",
-  "سبد پلاستیکی", "پادری اسفنجی", "دستمال ناژه", "جارو و خاک انداز"
-].map((name, index) => ({ id: `cat-${index}`, name }));
-
-const INITIAL_DB: DBStructure = {
-  products: [
-    { id: '1', name: 'سطل زباله ۵۰ لیتری پدالی', category: 'سطل زباله پدالی', retailPrice: 450000, wholesalePrice: 420000, avgCost: 380000, quantity: 15, lowStockThreshold: 5, isActive: true, createdAt: new Date().toISOString() },
-    { id: '2', name: 'جعبه ابزار صنعتی بزرگ', category: 'جعبه صنعتی', retailPrice: 890000, wholesalePrice: 850000, avgCost: 750000, quantity: 8, lowStockThreshold: 3, isActive: true, createdAt: new Date().toISOString() },
-    { id: '3', name: 'صندوق چرخدار ۱۲۰ لیتری', category: 'صندوق چرخدار', retailPrice: 1200000, wholesalePrice: 1150000, avgCost: 1000000, quantity: 5, lowStockThreshold: 2, isActive: true, createdAt: new Date().toISOString() },
-    { id: '4', name: 'نظم دهنده کشو ۳ طبقه', category: 'نظم دهنده و فایل کشو کریستالی', retailPrice: 250000, wholesalePrice: 220000, avgCost: 180000, quantity: 20, lowStockThreshold: 10, isActive: true, createdAt: new Date().toISOString() },
-    { id: '5', name: 'زمین شوی چرخشی مدل سبد فلزی', category: 'زمین شوی', retailPrice: 1450000, wholesalePrice: 1400000, avgCost: 1250000, quantity: 4, lowStockThreshold: 2, isActive: true, createdAt: new Date().toISOString() },
-    { id: '6', name: 'جارو و خاک انداز لولایی', category: 'جارو و خاک انداز', retailPrice: 185000, wholesalePrice: 165000, avgCost: 140000, quantity: 30, lowStockThreshold: 5, isActive: true, createdAt: new Date().toISOString() }
-  ],
-  purchases: [],
-  customers: [
-    { id: 'c1', name: 'محمدی (ابزار فروشی)', phone: '09123456789', balance: -500000 },
-    { id: 'c2', name: 'رضایی', phone: '09351112233', balance: 0 },
-    { id: 'c3', name: 'فروشگاه ناصر', phone: '09194445566', balance: -1250000 }
-  ],
-  invoices: [],
-  payments: [],
-  reminders: [],
-  todos: [],
-  categories: INITIAL_CATEGORIES
-};
+type SyncStatus = 'offline' | 'connecting' | 'connected' | 'error';
+type SubscriptionCallback = () => void;
 
 class Database {
-  private data: DBStructure;
+  private data: DBStructure = {
+    products: [], purchases: [], customers: [], invoices: [], payments: [], reminders: [], todos: [], categories: []
+  };
+  
+  private dbInstance: any = null;
+  private syncStatus: SyncStatus = 'offline';
+  private subscribers: SubscriptionCallback[] = [];
 
   constructor() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    this.data = saved ? JSON.parse(saved) : INITIAL_DB;
-    // Data migrations
-    if (!this.data.todos) this.data.todos = [];
-    if (!this.data.categories) this.data.categories = INITIAL_CATEGORIES;
+    this.loadLocal();
   }
 
-  private save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+  // ثبت‌نام کامپوننت‌ها برای دریافت تغییرات دیتابیس (جهت رندر مجدد)
+  subscribe(callback: SubscriptionCallback) {
+    this.subscribers.push(callback);
+    return () => {
+      this.subscribers = this.subscribers.filter(cb => cb !== callback);
+    };
   }
 
+  private notify() {
+    this.saveLocal();
+    this.subscribers.forEach(cb => cb());
+  }
+
+  getStatus(): SyncStatus {
+    return this.syncStatus;
+  }
+
+  private loadLocal() {
+    try {
+      const saved = localStorage.getItem('plasticban_cloud_cache');
+      if (saved) {
+        this.data = JSON.parse(saved);
+      } else {
+        // Fallback for older versions
+        const oldSaved = localStorage.getItem('plasticban_db_v2') || localStorage.getItem('plasticban_db');
+        if (oldSaved) this.data = JSON.parse(oldSaved);
+      }
+    } catch (e) {
+      console.error("Cache load error", e);
+    }
+  }
+
+  private saveLocal() {
+    try {
+      localStorage.setItem('plasticban_cloud_cache', JSON.stringify(this.data));
+    } catch (e) {
+      console.error("Cache save error", e);
+    }
+  }
+
+  async init(): Promise<void> {
+    const configStr = localStorage.getItem('firebase_config');
+    if (configStr) {
+      this.connectFirebase(JSON.parse(configStr));
+    } else {
+      this.notify(); // Ready in offline mode
+    }
+  }
+
+  connectFirebase(config: any) {
+    try {
+      this.syncStatus = 'connecting';
+      this.notify();
+      
+      const app = initializeApp(config);
+      this.dbInstance = getFirestore(app);
+      this.setupCloudListeners();
+      
+      this.syncStatus = 'connected';
+      localStorage.setItem('firebase_config', JSON.stringify(config));
+      this.notify();
+    } catch (error) {
+      console.error("Firebase Connection Error:", error);
+      this.syncStatus = 'error';
+      this.notify();
+    }
+  }
+
+  disconnectFirebase() {
+    this.dbInstance = null;
+    this.syncStatus = 'offline';
+    localStorage.removeItem('firebase_config');
+    this.notify();
+  }
+
+  private setupCloudListeners() {
+    if (!this.dbInstance) return;
+    
+    const collections = ['products', 'purchases', 'customers', 'invoices', 'payments', 'reminders', 'todos', 'categories'];
+    
+    collections.forEach(colName => {
+      onSnapshot(collection(this.dbInstance, colName), (snapshot) => {
+        const items: any[] = [];
+        snapshot.forEach(doc => items.push(doc.data()));
+        (this.data as any)[colName] = items;
+        this.notify();
+      }, (error) => {
+        console.error(`Error syncing ${colName}:`, error);
+        this.syncStatus = 'error';
+        this.notify();
+      });
+    });
+  }
+
+  // --- Cloud Push Helpers ---
+  private async pushDoc(colName: string, id: string, docData: any) {
+    if (this.dbInstance) {
+      try { await setDoc(doc(this.dbInstance, colName, id), docData); } 
+      catch (e) { console.error("Cloud push failed:", e); }
+    }
+  }
+
+  private async deleteDocCloud(colName: string, id: string) {
+    if (this.dbInstance) {
+      try { await deleteDoc(doc(this.dbInstance, colName, id)); } 
+      catch (e) { console.error("Cloud delete failed:", e); }
+    }
+  }
+
+  // --- Data Access Methods ---
   getProducts() { return this.data.products; }
   getPurchases() { return this.data.purchases; }
   getCustomers() { return this.data.customers; }
@@ -71,10 +148,12 @@ class Database {
   getTodos() { return this.data.todos; }
   getCategories() { return this.data.categories; }
 
+  // --- Business Logic Methods ---
   addCategory(name: string) {
     const category: Category = { id: 'cat-' + Date.now(), name };
     this.data.categories.push(category);
-    this.save();
+    this.pushDoc('categories', category.id, category);
+    this.notify();
     return category;
   }
 
@@ -83,21 +162,28 @@ class Database {
     if (category) {
       const oldName = category.name;
       category.name = name;
-      // Update existing products with this category name to the new name
+      this.pushDoc('categories', id, category);
+      
       this.data.products.forEach(p => {
-        if (p.category === oldName) p.category = name;
+        if (p.category === oldName) {
+          p.category = name;
+          this.pushDoc('products', p.id, p);
+        }
       });
-      this.save();
+      this.notify();
     }
   }
 
   deleteCategory(id: string) {
     this.data.categories = this.data.categories.filter(c => c.id !== id);
-    this.save();
+    this.deleteDocCloud('categories', id);
+    this.notify();
   }
 
   addPurchase(purchase: Purchase) {
     this.data.purchases.push(purchase);
+    this.pushDoc('purchases', purchase.id, purchase);
+
     purchase.items.forEach(item => {
       const product = this.data.products.find(p => p.id === item.productId);
       if (product) {
@@ -106,9 +192,10 @@ class Database {
         const totalCost = (oldQty * oldAvg) + (item.qty * item.unitCost);
         product.quantity += item.qty;
         product.avgCost = product.quantity > 0 ? totalCost / product.quantity : item.unitCost;
+        this.pushDoc('products', product.id, product);
       }
     });
-    this.save();
+    this.notify();
   }
 
   createInvoice(invoice: Invoice) {
@@ -121,26 +208,33 @@ class Database {
       const product = this.data.products.find(p => p.id === item.productId)!;
       product.quantity -= item.qty;
       item.costBasisAtSale = product.avgCost;
+      this.pushDoc('products', product.id, product);
     });
 
     if (invoice.customerId && invoice.remainingAmount > 0) {
       const customer = this.data.customers.find(c => c.id === invoice.customerId);
-      if (customer) customer.balance -= invoice.remainingAmount;
+      if (customer) {
+        customer.balance -= invoice.remainingAmount;
+        this.pushDoc('customers', customer.id, customer);
+      }
 
       if (invoice.dueDate) {
-        this.data.reminders.push({
+        const rem: Reminder = {
           id: 'rem-' + Date.now(),
           customerId: invoice.customerId,
           customerName: customer?.name || 'نامشخص',
           dueDate: invoice.dueDate,
           message: `سررسید بدهی فاکتور ${invoice.invoiceNumber}`,
           status: ReminderStatus.PENDING
-        });
+        };
+        this.data.reminders.push(rem);
+        this.pushDoc('reminders', rem.id, rem);
       }
     }
 
     this.data.invoices.push(invoice);
-    this.save();
+    this.pushDoc('invoices', invoice.id, invoice);
+    this.notify();
   }
 
   updateInvoice(id: string, updatedInvoice: Invoice) {
@@ -148,8 +242,6 @@ class Database {
     if (index === -1) throw new Error("فاکتور یافت نشد");
 
     const oldInvoice = this.data.invoices[index];
-
-    // Calculate available quantities (current + what was in old invoice)
     const availableQuantities = new Map<string, number>();
     this.data.products.forEach(p => availableQuantities.set(p.id, p.quantity));
     
@@ -158,7 +250,6 @@ class Database {
       availableQuantities.set(oldItem.productId, current + oldItem.qty);
     });
 
-    // Check new items against available quantities
     for (const item of updatedInvoice.items) {
       const available = availableQuantities.get(item.productId) || 0;
       if (available < item.qty) {
@@ -167,83 +258,79 @@ class Database {
       }
     }
 
-    // 1. Revert old invoice effects
     oldInvoice.items.forEach(oldItem => {
       const product = this.data.products.find(p => p.id === oldItem.productId);
-      if (product) product.quantity += oldItem.qty;
+      if (product) {
+        product.quantity += oldItem.qty;
+      }
     });
 
     if (oldInvoice.customerId && oldInvoice.remainingAmount > 0) {
       const customer = this.data.customers.find(c => c.id === oldInvoice.customerId);
-      if (customer) customer.balance += oldInvoice.remainingAmount;
+      if (customer) {
+        customer.balance += oldInvoice.remainingAmount;
+        this.pushDoc('customers', customer.id, customer);
+      }
     }
 
-    // 2. Apply new invoice effects
     updatedInvoice.items.forEach(newItem => {
       const product = this.data.products.find(p => p.id === newItem.productId)!;
       product.quantity -= newItem.qty;
       newItem.costBasisAtSale = product.avgCost;
+      this.pushDoc('products', product.id, product);
     });
 
     if (updatedInvoice.customerId && updatedInvoice.remainingAmount > 0) {
       const customer = this.data.customers.find(c => c.id === updatedInvoice.customerId);
-      if (customer) customer.balance -= updatedInvoice.remainingAmount;
-    }
-
-    // 3. Update reminders
-    const reminderIndex = this.data.reminders.findIndex(r => r.message.includes(updatedInvoice.invoiceNumber));
-    if (reminderIndex !== -1) {
-       if (updatedInvoice.dueDate && updatedInvoice.remainingAmount > 0) {
-         this.data.reminders[reminderIndex].dueDate = updatedInvoice.dueDate;
-       } else {
-         this.data.reminders.splice(reminderIndex, 1);
-       }
-    } else if (updatedInvoice.dueDate && updatedInvoice.remainingAmount > 0 && updatedInvoice.customerId) {
-       const customer = this.data.customers.find(c => c.id === updatedInvoice.customerId);
-       this.data.reminders.push({
-          id: 'rem-' + Date.now(),
-          customerId: updatedInvoice.customerId,
-          customerName: customer?.name || 'نامشخص',
-          dueDate: updatedInvoice.dueDate,
-          message: `سررسید بدهی فاکتور ${updatedInvoice.invoiceNumber}`,
-          status: ReminderStatus.PENDING
-       });
+      if (customer) {
+        customer.balance -= updatedInvoice.remainingAmount;
+        this.pushDoc('customers', customer.id, customer);
+      }
     }
 
     this.data.invoices[index] = updatedInvoice;
-    this.save();
+    this.pushDoc('invoices', updatedInvoice.id, updatedInvoice);
+    this.notify();
   }
 
   addPayment(payment: Payment) {
     const customer = this.data.customers.find(c => c.id === payment.customerId);
-    if (customer) customer.balance += payment.amount;
+    if (customer) {
+      customer.balance += payment.amount;
+      this.pushDoc('customers', customer.id, customer);
+    }
     this.data.payments.push(payment);
-    this.save();
+    this.pushDoc('payments', payment.id, payment);
+    this.notify();
   }
 
   addCustomer(customer: Customer) {
     this.data.customers.push(customer);
-    this.save();
+    this.pushDoc('customers', customer.id, customer);
+    this.notify();
   }
 
   updateCustomer(id: string, updates: Partial<Customer>) {
     const index = this.data.customers.findIndex(c => c.id === id);
     if (index !== -1) {
       this.data.customers[index] = { ...this.data.customers[index], ...updates };
-      this.save();
+      this.pushDoc('customers', id, this.data.customers[index]);
+      this.notify();
     }
   }
 
   addProduct(product: Product) {
     this.data.products.push(product);
-    this.save();
+    this.pushDoc('products', product.id, product);
+    this.notify();
   }
 
   updateProduct(id: string, updates: Partial<Product>) {
     const index = this.data.products.findIndex(p => p.id === id);
     if (index !== -1) {
       this.data.products[index] = { ...this.data.products[index], ...updates };
-      this.save();
+      this.pushDoc('products', id, this.data.products[index]);
+      this.notify();
     }
   }
 
@@ -255,7 +342,8 @@ class Database {
       createdAt: new Date().toISOString()
     };
     this.data.todos.push(todo);
-    this.save();
+    this.pushDoc('todos', todo.id, todo);
+    this.notify();
     return todo;
   }
 
@@ -263,13 +351,15 @@ class Database {
     const todo = this.data.todos.find(t => t.id === id);
     if (todo) {
       todo.completed = !todo.completed;
-      this.save();
+      this.pushDoc('todos', id, todo);
+      this.notify();
     }
   }
 
   deleteTodo(id: string) {
     this.data.todos = this.data.todos.filter(t => t.id !== id);
-    this.save();
+    this.deleteDocCloud('todos', id);
+    this.notify();
   }
 }
 
