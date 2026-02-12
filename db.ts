@@ -36,7 +36,6 @@ class Database {
     };
   }
 
-  // اضافه شدن قابلیت تشخیص تغییرات برای بکاپ اضطراری
   private notify(isMutation: boolean = true) {
     this.saveLocal();
     if (isMutation) {
@@ -76,7 +75,7 @@ class Database {
     if (configStr) {
       this.connectFirebase(JSON.parse(configStr));
     } else {
-      this.notify(false); // در لود اولیه نیازی به مارک کردن برای بکاپ نیست
+      this.notify(false);
     }
   }
 
@@ -116,7 +115,7 @@ class Database {
         const items: any[] = [];
         snapshot.forEach(doc => items.push(doc.data()));
         (this.data as any)[colName] = items;
-        this.notify(true); // دیتای جدید از کلود آمده، پس نیاز به بکاپ داریم
+        this.notify(true);
       }, (error) => {
         console.error(`Error syncing ${colName}:`, error);
         this.syncStatus = 'error';
@@ -178,8 +177,6 @@ class Database {
     anchorNode.click();
     document.body.removeChild(anchorNode);
     URL.revokeObjectURL(url);
-    
-    // وقتی بکاپ گرفته شد، فلگ نیاز به بکاپ را پاک می‌کنیم
     try { localStorage.setItem('plasticban_needs_backup', 'false'); } catch(e) {}
   }
 
@@ -217,7 +214,6 @@ class Database {
       const oldName = category.name;
       category.name = name;
       this.pushDoc('categories', id, category);
-      
       this.data.products.forEach(p => {
         if (p.category === oldName) {
           p.category = name;
@@ -241,7 +237,7 @@ class Database {
   }
 
   addProducts(products: Product[]) {
-    products.forEach((product, idx) => {
+    products.forEach((product) => {
       this.data.products.push(product);
       this.pushDoc('products', product.id, product);
     });
@@ -257,10 +253,32 @@ class Database {
     }
   }
 
+  deleteProduct(id: string) {
+    this.data.products = this.data.products.filter(p => p.id !== id);
+    this.deleteDocCloud('products', id);
+    this.notify();
+  }
+
+  bulkUpdateProducts(ids: string[], updates: { retailPercent?: number, wholesalePercent?: number, costPercent?: number, quantity?: number }) {
+    this.data.products = this.data.products.map(p => {
+      if (ids.includes(p.id)) {
+        let updated = { ...p };
+        if (updates.retailPercent !== undefined) updated.retailPrice = Math.round(updated.retailPrice * (1 + updates.retailPercent / 100));
+        if (updates.wholesalePercent !== undefined) updated.wholesalePrice = Math.round(updated.wholesalePrice * (1 + updates.wholesalePercent / 100));
+        if (updates.costPercent !== undefined) updated.avgCost = Math.round(updated.avgCost * (1 + updates.costPercent / 100));
+        if (updates.quantity !== undefined) updated.quantity = updates.quantity;
+        
+        this.pushDoc('products', updated.id, updated);
+        return updated;
+      }
+      return p;
+    });
+    this.notify();
+  }
+
   addPurchase(purchase: Purchase) {
     this.data.purchases.push(purchase);
     this.pushDoc('purchases', purchase.id, purchase);
-
     purchase.items.forEach(item => {
       const product = this.data.products.find(p => p.id === item.productId);
       if (product) {
@@ -278,16 +296,13 @@ class Database {
   updatePurchase(id: string, updatedPurchase: Purchase) {
     const index = this.data.purchases.findIndex(p => p.id === id);
     if (index === -1) throw new Error("سند خرید یافت نشد");
-
     const oldPurchase = this.data.purchases[index];
-
     oldPurchase.items.forEach(oldItem => {
       const product = this.data.products.find(p => p.id === oldItem.productId);
       if (product) {
         const currentTotalCost = product.quantity * product.avgCost;
         const oldItemTotalCost = oldItem.qty * oldItem.unitCost;
         product.quantity -= oldItem.qty;
-        
         if (product.quantity > 0) {
            product.avgCost = Math.max(0, (currentTotalCost - oldItemTotalCost) / product.quantity);
         } else {
@@ -296,7 +311,6 @@ class Database {
         }
       }
     });
-
     updatedPurchase.items.forEach(newItem => {
       const product = this.data.products.find(p => p.id === newItem.productId);
       if (product) {
@@ -307,30 +321,20 @@ class Database {
         this.pushDoc('products', product.id, product);
       }
     });
-
-    oldPurchase.items.forEach(oldItem => {
-        if (!updatedPurchase.items.find(i => i.productId === oldItem.productId)) {
-            const product = this.data.products.find(p => p.id === oldItem.productId);
-            if (product) this.pushDoc('products', product.id, product);
-        }
-    });
-
     this.data.purchases[index] = updatedPurchase;
     this.pushDoc('purchases', updatedPurchase.id, updatedPurchase);
     this.notify();
   }
 
   createInvoice(invoice: Invoice) {
-    for (const item of invoice.items) {
-      const product = this.data.products.find(p => p.id === item.productId);
-      if (!product || product.quantity < item.qty) throw new Error(`موجودی کالا (${product?.name}) کافی نیست.`);
-    }
-
+    // محدودیت موجودی برداشته شد تا فروش منفی هم امکان‌پذیر باشد
     invoice.items.forEach(item => {
-      const product = this.data.products.find(p => p.id === item.productId)!;
-      product.quantity -= item.qty;
-      item.costBasisAtSale = product.avgCost;
-      this.pushDoc('products', product.id, product);
+      const product = this.data.products.find(p => p.id === item.productId);
+      if (product) {
+        product.quantity -= item.qty;
+        item.costBasisAtSale = product.avgCost;
+        this.pushDoc('products', product.id, product);
+      }
     });
 
     if (invoice.customerId && invoice.remainingAmount > 0) {
@@ -339,7 +343,6 @@ class Database {
         customer.balance -= invoice.remainingAmount;
         this.pushDoc('customers', customer.id, customer);
       }
-
       if (invoice.dueDate) {
         const rem: Reminder = {
           id: 'rem-' + Date.now(),
@@ -362,44 +365,25 @@ class Database {
   updateInvoice(id: string, updatedInvoice: Invoice) {
     const index = this.data.invoices.findIndex(inv => inv.id === id);
     if (index === -1) throw new Error("فاکتور یافت نشد");
-
     const oldInvoice = this.data.invoices[index];
-    const availableQuantities = new Map<string, number>();
-    this.data.products.forEach(p => availableQuantities.set(p.id, p.quantity));
     
     oldInvoice.items.forEach(oldItem => {
-      const current = availableQuantities.get(oldItem.productId) || 0;
-      availableQuantities.set(oldItem.productId, current + oldItem.qty);
-    });
-
-    for (const item of updatedInvoice.items) {
-      const available = availableQuantities.get(item.productId) || 0;
-      if (available < item.qty) {
-        const product = this.data.products.find(p => p.id === item.productId);
-        throw new Error(`موجودی کالا (${product?.name || 'نامشخص'}) کافی نیست.`);
-      }
-    }
-
-    oldInvoice.items.forEach(oldItem => {
       const product = this.data.products.find(p => p.id === oldItem.productId);
-      if (product) {
-        product.quantity += oldItem.qty;
-      }
+      if (product) product.quantity += oldItem.qty;
     });
 
     if (oldInvoice.customerId && oldInvoice.remainingAmount > 0) {
       const customer = this.data.customers.find(c => c.id === oldInvoice.customerId);
-      if (customer) {
-        customer.balance += oldInvoice.remainingAmount;
-        this.pushDoc('customers', customer.id, customer);
-      }
+      if (customer) customer.balance += oldInvoice.remainingAmount;
     }
 
     updatedInvoice.items.forEach(newItem => {
-      const product = this.data.products.find(p => p.id === newItem.productId)!;
-      product.quantity -= newItem.qty;
-      newItem.costBasisAtSale = product.avgCost;
-      this.pushDoc('products', product.id, product);
+      const product = this.data.products.find(p => p.id === newItem.productId);
+      if (product) {
+        product.quantity -= newItem.qty;
+        newItem.costBasisAtSale = product.avgCost;
+        this.pushDoc('products', product.id, product);
+      }
     });
 
     if (updatedInvoice.customerId && updatedInvoice.remainingAmount > 0) {
@@ -442,12 +426,7 @@ class Database {
   }
 
   addTodo(text: string) {
-    const todo: Todo = {
-      id: 'todo-' + Date.now(),
-      text,
-      completed: false,
-      createdAt: new Date().toISOString()
-    };
+    const todo: Todo = { id: 'todo-' + Date.now(), text, completed: false, createdAt: new Date().toISOString() };
     this.data.todos.push(todo);
     this.pushDoc('todos', todo.id, todo);
     this.notify();

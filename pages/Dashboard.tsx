@@ -1,4 +1,5 @@
 
+// Add React import to fix 'Cannot find namespace React' errors
 import React, { useState } from 'react';
 import { db } from '../db';
 import { Todo } from '../types';
@@ -43,8 +44,26 @@ const Dashboard: React.FC = () => {
     setTodos([...db.getTodos()]);
   };
 
+  // گرفتن تاریخ امروز به شمسی
+  const todayDate = new Intl.DateTimeFormat('fa-IR', { 
+    dateStyle: 'full' 
+  }).format(new Date());
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
+      
+      {/* Dashboard Header with Date */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-2">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">👋</span>
+          <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">خوش آمدید!</h2>
+        </div>
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/50 px-4 py-2 rounded-2xl border dark:border-slate-700/50">
+          <span className="text-lg">📅</span>
+          <span className="text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400">{todayDate}</span>
+        </div>
+      </div>
+
       {/* Top Cards - Responsive Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-5 md:p-6 rounded-3xl text-white shadow-xl shadow-blue-500/10">
@@ -69,9 +88,11 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+        
         {/* Left Column: Low Stock & Debtors */}
-        <div className="lg:col-span-2 space-y-6 md:space-y-8">
+        <div className="lg:col-span-7 xl:col-span-8 space-y-6 md:space-y-8">
+          
           {/* Low Stock Table */}
           <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
             <div className="p-4 md:p-5 border-b dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center">
@@ -135,69 +156,75 @@ const Dashboard: React.FC = () => {
           </section>
         </div>
 
-        {/* Right Column: To-Do List */}
-        <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm flex flex-col overflow-hidden h-fit">
-          <div className="p-4 md:p-5 border-b dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center">
-            <h4 className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-              ✅ لیست کارهای امروز
+        {/* Right Column: To-Do List (Enlarged for Desktop) */}
+        <section className="lg:col-span-5 xl:col-span-4 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm flex flex-col overflow-hidden h-fit ring-4 ring-blue-50/30 dark:ring-transparent">
+          <div className="p-5 md:p-6 border-b dark:border-slate-800 bg-blue-600 dark:bg-slate-800/50 flex justify-between items-center text-white">
+            <h4 className="text-sm md:text-base font-black flex items-center gap-3">
+              <span className="text-xl">📝</span>
+              لیست کارهای امروز
             </h4>
-            <span className="text-[9px] md:text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg">Tasks</span>
+            <span className="text-[10px] font-bold bg-white/20 px-2 py-1 rounded-lg">High Priority</span>
           </div>
           
-          <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+          <div className="p-5 md:p-8 space-y-6 md:space-y-8">
             <form onSubmit={handleAddTodo} className="relative">
               <input 
                 type="text" 
-                placeholder="افزودن کار جدید..." 
-                className="w-full pr-4 pl-10 py-2.5 md:py-3 bg-gray-50 dark:bg-slate-800 border dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-all text-sm"
+                placeholder="چه کاری باید انجام شود؟" 
+                className="w-full pr-5 pl-14 py-4 md:py-5 bg-gray-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none dark:text-white transition-all text-sm md:text-base font-medium shadow-inner"
                 value={newTodo}
                 onChange={(e) => setNewTodo(e.target.value)}
               />
               <button 
                 type="submit" 
-                className="absolute left-2 top-1.5 p-1.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/20"
+                className="absolute left-3 top-2 bottom-2 px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 font-bold active:scale-90"
               >
-                ➕
+                ثبت
               </button>
             </form>
 
-            <div className="space-y-3 max-h-[300px] md:max-h-[400px] overflow-auto pr-1 custom-scrollbar">
+            <div className="space-y-4 max-h-[450px] md:max-h-[600px] overflow-auto pr-1 custom-scrollbar">
               {todos.length > 0 ? [...todos].reverse().map(todo => (
                 <div 
                   key={todo.id} 
-                  className={`flex items-center justify-between p-3 rounded-2xl border dark:border-slate-800 transition-all group ${todo.completed ? 'bg-gray-50/50 dark:bg-slate-800/30 border-transparent opacity-60' : 'bg-white dark:bg-slate-900 hover:border-blue-100 dark:hover:border-blue-900'}`}
+                  className={`flex items-center justify-between p-4 md:p-5 rounded-2xl border-2 transition-all group ${todo.completed ? 'bg-gray-50/50 dark:bg-slate-800/30 border-transparent opacity-60' : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 shadow-sm'}`}
                 >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
                     <button 
                       onClick={() => handleToggleTodo(todo.id)}
-                      className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors flex-shrink-0 ${todo.completed ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-200 dark:border-slate-700 hover:border-blue-500'}`}
+                      className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all flex-shrink-0 ${todo.completed ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'border-gray-200 dark:border-slate-700 hover:border-blue-500'}`}
                     >
                       {todo.completed && '✓'}
                     </button>
-                    <span className={`text-xs md:text-sm font-medium truncate dark:text-slate-300 ${todo.completed ? 'line-through text-gray-400' : ''}`}>
+                    <span className={`text-sm md:text-base font-bold truncate dark:text-slate-300 ${todo.completed ? 'line-through text-gray-400' : 'text-slate-700'}`}>
                       {todo.text}
                     </span>
                   </div>
                   <button 
                     onClick={() => handleDeleteTodo(todo.id)}
-                    className="p-1.5 text-gray-400 hover:text-rose-500 transition-all md:opacity-0 md:group-hover:opacity-100"
+                    className="p-2 text-gray-300 hover:text-rose-500 transition-all md:opacity-0 md:group-hover:opacity-100 bg-gray-50 dark:bg-slate-800 rounded-lg"
                   >
                     🗑️
                   </button>
                 </div>
               )) : (
-                <div className="text-center py-8 opacity-30">
-                  <span className="text-3xl block mb-2">📝</span>
-                  <p className="text-[10px] font-bold">هنوز کاری ثبت نشده است</p>
+                <div className="text-center py-16 opacity-30">
+                  <div className="text-6xl mb-4">🏖️</div>
+                  <p className="text-sm font-black text-slate-500 uppercase tracking-widest">همه کارها انجام شده!</p>
                 </div>
               )}
             </div>
           </div>
           
           {todos.length > 0 && (
-            <div className="p-3 md:p-4 bg-gray-50 dark:bg-slate-800/50 border-t dark:border-slate-800 text-center">
-              <p className="text-[9px] md:text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-widest">
-                {todos.filter(t => t.completed).length} از {todos.length} انجام شده
+            <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-800 flex justify-center items-center gap-4">
+              <div className="flex -space-x-2 rtl:space-x-reverse">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="w-6 h-6 rounded-full bg-blue-400 border-2 border-white dark:border-slate-900"></div>
+                ))}
+              </div>
+              <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">
+                {todos.filter(t => t.completed).length} مورد انجام شد • {todos.length} مورد باقی‌مانده
               </p>
             </div>
           )}
