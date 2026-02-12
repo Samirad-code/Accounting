@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { db } from '../db';
 import { Product, Category } from '../types';
@@ -35,7 +36,8 @@ const Products: React.FC = () => {
     retailPercent: 0,
     wholesalePercent: 0,
     costPercent: 0,
-    quantity: undefined as number | undefined
+    quantity: undefined as number | undefined,
+    brand: ''
   });
 
   const filteredProducts = useMemo(() => {
@@ -46,7 +48,7 @@ const Products: React.FC = () => {
         (p.internalCode && p.internalCode.includes(searchTerm)) ||
         (p.brand && p.brand.includes(searchTerm));
       
-      const matchCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
+      const matchCategory = categoryFilter === 'ALL' || p.category === categoryFilter || p.brand === categoryFilter;
       const matchLowStock = !lowStockOnly || p.quantity <= p.lowStockThreshold;
       return matchSearch && matchCategory && matchLowStock;
     });
@@ -57,6 +59,7 @@ const Products: React.FC = () => {
         case 'name_desc': return b.name.localeCompare(a.name, 'fa');
         case 'category_asc': return a.category.localeCompare(b.category, 'fa');
         case 'brand_asc': return (a.brand || '').localeCompare(b.brand || '', 'fa');
+        case 'brand_desc': return (b.brand || '').localeCompare(a.brand || '', 'fa');
         case 'qty_desc': return b.quantity - a.quantity;
         case 'qty_asc': return a.quantity - b.quantity;
         default: return 0;
@@ -65,6 +68,11 @@ const Products: React.FC = () => {
 
     return result;
   }, [products, searchTerm, categoryFilter, lowStockOnly, sortBy]);
+
+  const uniqueBrands = useMemo(() => {
+    const brands = products.map(p => p.brand).filter(Boolean) as string[];
+    return Array.from(new Set(brands)).sort((a, b) => a.localeCompare(b, 'fa'));
+  }, [products]);
 
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredProducts.length) {
@@ -113,78 +121,13 @@ const Products: React.FC = () => {
 
   const handleBulkUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    db.bulkUpdateProducts(selectedIds, bulkData);
+    const updates: any = { ...bulkData };
+    if (!updates.brand) delete updates.brand;
+    db.bulkUpdateProducts(selectedIds, updates);
     setProducts(db.getProducts());
     setIsBulkEditModalOpen(false);
     setSelectedIds([]);
-    setBulkData({ retailPercent: 0, wholesalePercent: 0, costPercent: 0, quantity: undefined });
-  };
-
-  const exportAllProducts = () => {
-    const ws = XLSX.utils.json_to_sheet(products.map(p => ({
-      'کد کالا': p.internalCode || p.id,
-      'نام کالا': p.name,
-      'برند': p.brand || '-',
-      'دسته‌بندی': p.category,
-      'موجودی': p.quantity,
-      'بهای تمام شده': p.avgCost,
-      'قیمت خرده': p.retailPrice,
-      'قیمت عمده': p.wholesalePrice,
-      'حد هشدار': p.lowStockThreshold
-    })));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-    XLSX.writeFile(wb, `plasticban_inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
-
-  const downloadTemplate = () => {
-    const ws = XLSX.utils.json_to_sheet([{ 'نام کالا': 'کیسه فریزر', 'برند': 'پنگوئن', 'دسته‌بندی': 'کیسه‌ها', 'کد کالا': 'P-101', 'موجودی': 100, 'حداقل موجودی': 10, 'قیمت خرید': 15000, 'قیمت خرده': 20000, 'قیمت عمده': 18000 }]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Products");
-    XLSX.writeFile(wb, "template.xlsx");
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws);
-        const newProducts: Product[] = [];
-        data.forEach((row: any, index: number) => {
-          const name = row['نام کالا'] || row['نام'] || row['Name'];
-          if (!name) return;
-          const category = row['دسته‌بندی'] || row['دسته'] || 'عمومی';
-          if (!db.getCategories().find(c => c.name === category)) db.addCategory(category);
-          newProducts.push({
-            id: `prod-${Date.now()}-${index}`,
-            name: String(name),
-            brand: String(row['برند'] || ''),
-            category: String(category),
-            internalCode: String(row['کد کالا'] || ''),
-            quantity: parseInt(row['موجودی']) || 0,
-            lowStockThreshold: parseInt(row['حداقل موجودی']) || 5,
-            avgCost: parseFloat(row['قیمت خرید']) || 0,
-            retailPrice: parseFloat(row['قیمت خرده']) || 0,
-            wholesalePrice: parseFloat(row['قیمت عمده']) || 0,
-            isActive: true,
-            createdAt: new Date().toISOString()
-          });
-        });
-        if (newProducts.length > 0) {
-          db.addProducts(newProducts);
-          alert(`تعداد ${newProducts.length} محصول با موفقیت وارد شد.`);
-          setProducts(db.getProducts());
-          setIsExcelModalOpen(false);
-        }
-      } catch (err) { alert('خطا در پردازش فایل!'); }
-    };
-    reader.readAsBinaryString(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    setBulkData({ retailPercent: 0, wholesalePercent: 0, costPercent: 0, quantity: undefined, brand: '' });
   };
 
   return (
@@ -202,10 +145,7 @@ const Products: React.FC = () => {
         </div>
         
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <button onClick={exportAllProducts} className="flex-1 md:flex-none bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all font-bold flex items-center justify-center gap-2 border dark:border-slate-700">
-            📊 خروجی اکسل کامل
-          </button>
-          <button onClick={() => setIsExcelModalOpen(true)} className="flex-1 md:flex-none bg-green-600 text-white px-4 py-3 rounded-2xl hover:bg-green-700 transition-all shadow-lg shadow-green-500/20 font-bold flex items-center justify-center gap-2">
+          <button onClick={() => setIsExcelModalOpen(true)} className="flex-1 md:flex-none bg-green-600 text-white px-4 py-3 rounded-2xl hover:bg-green-700 transition-all font-bold flex items-center justify-center gap-2">
             📥 ورود اکسل
           </button>
           <button onClick={openAddModal} className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-3 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold flex items-center justify-center gap-2">
@@ -216,21 +156,28 @@ const Products: React.FC = () => {
 
       <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-2xl border dark:border-slate-700 shadow-sm flex flex-wrap items-center gap-6">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-400">دسته:</span>
+          <span className="text-xs font-bold text-gray-400">فیلتر برند/دسته:</span>
           <select className="text-sm p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="ALL">همه دسته‌ها</option>
-            {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+            <option value="ALL">همه موارد</option>
+            <optgroup label="برندها">
+              {uniqueBrands.map(brand => <option key={brand} value={brand}>{brand}</option>)}
+            </optgroup>
+            <optgroup label="دسته‌ها">
+              {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+            </optgroup>
           </select>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-gray-400">مرتب‌سازی:</span>
           <select className="text-sm p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="name_asc">الفبا (الف تا ی)</option>
+            <option value="name_asc">نام (الف تا ی)</option>
+            <option value="brand_asc">برند (الف تا ی)</option>
+            <option value="brand_desc">برند (ی تا الف)</option>
             <option value="qty_desc">موجودی (بیشترین)</option>
             <option value="qty_asc">موجودی (کمترین)</option>
           </select>
         </div>
-        <label className="flex items-center gap-2 cursor-pointer group">
+        <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" className="w-4 h-4 rounded text-blue-600" checked={lowStockOnly} onChange={(e) => setLowStockOnly(e.target.checked)} />
           <span className="text-sm font-bold text-slate-600 dark:text-slate-400">کم‌موجودی</span>
         </label>
@@ -243,8 +190,8 @@ const Products: React.FC = () => {
               <th className="p-4 w-12 text-center">
                 <input type="checkbox" checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0} onChange={toggleSelectAll} className="w-4 h-4" />
               </th>
-              <th className="p-4">نام و کد کالا</th>
-              <th className="p-4">برند و دسته</th>
+              <th className="p-4">نام و برند</th>
+              <th className="p-4">دسته و کد</th>
               <th className="p-4 text-center">موجودی</th>
               <th className="p-4 text-center">قیمت خرید</th>
               <th className="p-4 text-center">خرده‌فروشی</th>
@@ -260,11 +207,11 @@ const Products: React.FC = () => {
                 </td>
                 <td className="p-4">
                   <div className="font-bold text-slate-700 dark:text-slate-200">{p.name}</div>
-                  <div className="text-[10px] text-slate-500">کد: {p.internalCode || '---'}</div>
+                  <div className="text-[10px] text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded w-max mt-1">{p.brand || 'بدون برند'}</div>
                 </td>
                 <td className="p-4">
-                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[10px] block w-max">{p.category}</span>
-                  <span className="text-[10px] text-gray-400 block mt-1">{p.brand || 'بدون برند'}</span>
+                  <span className="text-xs text-slate-500">{p.category}</span>
+                  <div className="text-[10px] text-gray-400">کد: {p.internalCode || '---'}</div>
                 </td>
                 <td className={`p-4 text-center ${getStockStatusColor(p.quantity, p.lowStockThreshold)} font-bold`}>{p.quantity}</td>
                 <td className="p-4 text-center text-gray-500 font-mono text-sm">{formatCurrency(p.avgCost)}</td>
@@ -282,41 +229,20 @@ const Products: React.FC = () => {
         </table>
       </div>
 
-      {/* Floating Action Bar for Selected Items */}
-      {selectedIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-4 rounded-3xl shadow-2xl z-[150] flex items-center gap-6 animate-in slide-in-from-bottom-10">
-          <div className="flex items-center gap-2">
-            <span className="bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">{selectedIds.length}</span>
-            <span className="text-sm font-bold">کالا انتخاب شده</span>
-          </div>
-          <div className="h-6 w-[1px] bg-slate-700"></div>
-          <div className="flex gap-3">
-            <button onClick={() => setIsBulkEditModalOpen(true)} className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-xl text-sm font-bold transition-all">ویرایش گروهی</button>
-            <button onClick={() => {
-              if (window.confirm(`آیا از حذف ${selectedIds.length} کالا اطمینان دارید؟`)) {
-                selectedIds.forEach(id => db.deleteProduct(id));
-                setProducts(db.getProducts());
-                setSelectedIds([]);
-              }
-            }} className="bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all border border-red-500/30">حذف گروهی</button>
-            <button onClick={() => setSelectedIds([])} className="text-slate-400 hover:text-white text-sm">انصراف</button>
-          </div>
-        </div>
-      )}
-
-      {/* --- Bulk Edit Modal --- */}
+      {/* Bulk Edit Modal */}
       {isBulkEditModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-200 border dark:border-slate-700">
             <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
               <h3 className="text-xl font-bold">ویرایش گروهی {selectedIds.length} کالا</h3>
-              <button onClick={() => setIsBulkEditModalOpen(false)} className="text-2xl opacity-50 hover:opacity-100 transition-opacity">×</button>
+              <button onClick={() => setIsBulkEditModalOpen(false)} className="text-2xl">×</button>
             </div>
             <form onSubmit={handleBulkUpdate} className="p-8 space-y-6">
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl text-xs text-blue-700 dark:text-blue-400">
-                💡 درصد را با علامت منفی برای کاهش و بدون علامت برای افزایش وارد کنید.
-              </div>
               <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold mb-2">تغییر برند برای همه</label>
+                  <input type="text" placeholder="نام برند جدید..." className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={bulkData.brand} onChange={e => setBulkData({...bulkData, brand: e.target.value})} />
+                </div>
                 <div>
                   <label className="block text-xs font-bold mb-2">تغییر درصد قیمت خرده</label>
                   <input type="number" step="0.1" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={bulkData.retailPercent} onChange={e => setBulkData({...bulkData, retailPercent: parseFloat(e.target.value) || 0})} />
@@ -330,12 +256,12 @@ const Products: React.FC = () => {
                   <input type="number" step="0.1" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={bulkData.costPercent} onChange={e => setBulkData({...bulkData, costPercent: parseFloat(e.target.value) || 0})} />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold mb-2">تنظیم موجودی جدید (یکسان)</label>
-                  <input type="number" placeholder="خالی بماند تغییر نمی‌کند" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={bulkData.quantity || ''} onChange={e => setBulkData({...bulkData, quantity: e.target.value ? parseInt(e.target.value) : undefined})} />
+                  <label className="block text-xs font-bold mb-2">تنظیم موجودی جدید</label>
+                  <input type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={bulkData.quantity || ''} onChange={e => setBulkData({...bulkData, quantity: e.target.value ? parseInt(e.target.value) : undefined})} />
                 </div>
               </div>
               <div className="flex gap-3 pt-6">
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all">اعمال تغییرات گروهی</button>
+                <button type="submit" className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg">اعمال تغییرات</button>
                 <button type="button" onClick={() => setIsBulkEditModalOpen(false)} className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 py-4 rounded-xl font-bold">انصراف</button>
               </div>
             </form>
@@ -343,13 +269,13 @@ const Products: React.FC = () => {
         </div>
       )}
 
-      {/* --- Add / Edit Modal (Single) --- */}
+      {/* Single Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 border dark:border-slate-700">
             <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
               <h3 className="text-xl font-bold">{editingProduct ? 'ویرایش محصول' : 'افزودن محصول جدید'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-2xl opacity-50 hover:opacity-100 transition-opacity">×</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-2xl">×</button>
             </div>
             <form onSubmit={handleSubmit} className="p-8 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
@@ -397,24 +323,16 @@ const Products: React.FC = () => {
         </div>
       )}
 
-      {/* --- Excel Import Modal --- */}
-      {isExcelModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border dark:border-slate-700">
-            <div className="bg-green-600 text-white p-6 flex justify-between items-center">
-              <h3 className="text-xl font-bold">ورود محصولات از اکسل</h3>
-              <button onClick={() => setIsExcelModalOpen(false)} className="text-2xl opacity-50 hover:opacity-100 transition-opacity">×</button>
-            </div>
-            <div className="p-8 space-y-6">
-              <button onClick={downloadTemplate} className="w-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3 rounded-xl font-bold border dark:border-slate-700 hover:bg-slate-200 transition-colors">📄 دانلود قالب اکسل</button>
-              <div className="relative w-full">
-                <input type="file" accept=".xlsx, .xls" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="excel-upload" />
-                <label htmlFor="excel-upload" className="w-full bg-green-500 text-white py-4 rounded-xl font-bold flex justify-center items-center gap-2 cursor-pointer hover:bg-green-600 shadow-lg shadow-green-500/30">
-                  <span className="text-xl">📤</span> انتخاب و آپلود فایل
-                </label>
-              </div>
-            </div>
+      {/* Floating Toolbar */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-4 rounded-3xl shadow-2xl z-[150] flex items-center gap-6 animate-in slide-in-from-bottom-10">
+          <div className="flex items-center gap-2">
+            <span className="bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">{selectedIds.length}</span>
+            <span className="text-sm font-bold">کالا انتخاب شده</span>
           </div>
+          <div className="h-6 w-[1px] bg-slate-700"></div>
+          <button onClick={() => setIsBulkEditModalOpen(true)} className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-xl text-sm font-bold transition-all">ویرایش گروهی</button>
+          <button onClick={() => setSelectedIds([])} className="text-slate-400 hover:text-white text-sm">انصراف</button>
         </div>
       )}
     </div>

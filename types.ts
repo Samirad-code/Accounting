@@ -1,3 +1,4 @@
+
 export enum InvoiceType {
   RETAIL = 'RETAIL',
   WHOLESALE = 'WHOLESALE'
@@ -70,7 +71,7 @@ export interface Customer {
 }
 
 export interface InvoiceItem {
-  productId: string;
+  productId?: string; // Optional for manual items
   productName: string;
   qty: number;
   unitPrice: number;

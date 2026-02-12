@@ -1,3 +1,4 @@
+
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { Product, Purchase, Customer, Invoice, Payment, Reminder, Todo, Category, InvoiceType, ReminderStatus } from './types';
@@ -259,7 +260,7 @@ class Database {
     this.notify();
   }
 
-  bulkUpdateProducts(ids: string[], updates: { retailPercent?: number, wholesalePercent?: number, costPercent?: number, quantity?: number }) {
+  bulkUpdateProducts(ids: string[], updates: { retailPercent?: number, wholesalePercent?: number, costPercent?: number, quantity?: number, brand?: string }) {
     this.data.products = this.data.products.map(p => {
       if (ids.includes(p.id)) {
         let updated = { ...p };
@@ -267,6 +268,7 @@ class Database {
         if (updates.wholesalePercent !== undefined) updated.wholesalePrice = Math.round(updated.wholesalePrice * (1 + updates.wholesalePercent / 100));
         if (updates.costPercent !== undefined) updated.avgCost = Math.round(updated.avgCost * (1 + updates.costPercent / 100));
         if (updates.quantity !== undefined) updated.quantity = updates.quantity;
+        if (updates.brand !== undefined) updated.brand = updates.brand;
         
         this.pushDoc('products', updated.id, updated);
         return updated;
@@ -327,13 +329,17 @@ class Database {
   }
 
   createInvoice(invoice: Invoice) {
-    // محدودیت موجودی برداشته شد تا فروش منفی هم امکان‌پذیر باشد
     invoice.items.forEach(item => {
-      const product = this.data.products.find(p => p.id === item.productId);
-      if (product) {
-        product.quantity -= item.qty;
-        item.costBasisAtSale = product.avgCost;
-        this.pushDoc('products', product.id, product);
+      if (item.productId) {
+        const product = this.data.products.find(p => p.id === item.productId);
+        if (product) {
+          product.quantity -= item.qty;
+          item.costBasisAtSale = product.avgCost;
+          this.pushDoc('products', product.id, product);
+        }
+      } else {
+        // Manual item - cost basis is 0 or user-provided if we had the field
+        item.costBasisAtSale = 0;
       }
     });
 
@@ -368,8 +374,10 @@ class Database {
     const oldInvoice = this.data.invoices[index];
     
     oldInvoice.items.forEach(oldItem => {
-      const product = this.data.products.find(p => p.id === oldItem.productId);
-      if (product) product.quantity += oldItem.qty;
+      if (oldItem.productId) {
+        const product = this.data.products.find(p => p.id === oldItem.productId);
+        if (product) product.quantity += oldItem.qty;
+      }
     });
 
     if (oldInvoice.customerId && oldInvoice.remainingAmount > 0) {
@@ -378,11 +386,15 @@ class Database {
     }
 
     updatedInvoice.items.forEach(newItem => {
-      const product = this.data.products.find(p => p.id === newItem.productId);
-      if (product) {
-        product.quantity -= newItem.qty;
-        newItem.costBasisAtSale = product.avgCost;
-        this.pushDoc('products', product.id, product);
+      if (newItem.productId) {
+        const product = this.data.products.find(p => p.id === newItem.productId);
+        if (product) {
+          product.quantity -= newItem.qty;
+          newItem.costBasisAtSale = product.avgCost;
+          this.pushDoc('products', product.id, product);
+        }
+      } else {
+        newItem.costBasisAtSale = 0;
       }
     });
 
