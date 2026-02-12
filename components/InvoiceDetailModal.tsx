@@ -6,9 +6,11 @@ import { formatCurrency, formatJalali, exportToPDF } from '../utils';
 interface InvoiceDetailModalProps {
   invoice: Invoice | null;
   onClose: () => void;
+  onDelete?: (id: string) => void;
+  onEdit?: (id: string) => void;
 }
 
-const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice, onClose }) => {
+const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice, onClose, onDelete, onEdit }) => {
   if (!invoice) return null;
 
   return (
@@ -103,19 +105,43 @@ const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice, onClos
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-gray-50 dark:bg-slate-800 border-t dark:border-slate-700 flex justify-end gap-3 shrink-0">
-          <button 
-            onClick={() => exportToPDF(`invoice-${invoice.id}`, `invoice-${invoice.invoiceNumber}`)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm md:text-base"
-          >
-            🖨️ چاپ فاکتور
-          </button>
-          <button 
-            onClick={onClose}
-            className="bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border dark:border-slate-600 px-6 py-2 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors text-sm md:text-base"
-          >
-            بستن
-          </button>
+        <div className="p-4 bg-gray-50 dark:bg-slate-800 border-t dark:border-slate-700 flex justify-between items-center shrink-0">
+          <div className="flex gap-2">
+            {onDelete && (
+              <button 
+                onClick={() => {
+                  if (window.confirm('آیا از حذف این فاکتور مطمئن هستید؟ این عمل باعث بازگشت موجودی به انبار و اصلاح حساب مشتری می‌شود.')) {
+                    onDelete(invoice.id);
+                  }
+                }}
+                className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-2 rounded-xl font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm"
+              >
+                🗑️ حذف فاکتور
+              </button>
+            )}
+            {onEdit && (
+              <button 
+                onClick={() => onEdit(invoice.id)}
+                className="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-4 py-2 rounded-xl font-bold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors text-sm"
+              >
+                ✏️ ویرایش
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => exportToPDF(`invoice-${invoice.id}`, `invoice-${invoice.invoiceNumber}`)}
+              className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm md:text-base"
+            >
+              🖨️ چاپ فاکتور
+            </button>
+            <button 
+              onClick={onClose}
+              className="bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border dark:border-slate-600 px-6 py-2 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors text-sm md:text-base"
+            >
+              بستن
+            </button>
+          </div>
         </div>
       </div>
     </div>

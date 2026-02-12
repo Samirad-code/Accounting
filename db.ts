@@ -354,6 +354,7 @@ class Database {
           customerId: invoice.customerId,
           customerName: customer?.name || 'نامشخص',
           dueDate: invoice.dueDate,
+          invoiceId: invoice.id,
           message: `سررسید بدهی فاکتور ${invoice.invoiceNumber}`,
           status: ReminderStatus.PENDING
         };
@@ -407,6 +408,42 @@ class Database {
 
     this.data.invoices[index] = updatedInvoice;
     this.pushDoc('invoices', updatedInvoice.id, updatedInvoice);
+    this.notify();
+  }
+
+  deleteInvoice(id: string) {
+    const index = this.data.invoices.findIndex(inv => inv.id === id);
+    if (index === -1) return;
+    const inv = this.data.invoices[index];
+
+    // 1. Restore product quantities
+    inv.items.forEach(item => {
+      if (item.productId) {
+        const product = this.data.products.find(p => p.id === item.productId);
+        if (product) {
+          product.quantity += item.qty;
+          this.pushDoc('products', product.id, product);
+        }
+      }
+    });
+
+    // 2. Adjust customer balance
+    if (inv.customerId && inv.remainingAmount > 0) {
+      const customer = this.data.customers.find(c => c.id === inv.customerId);
+      if (customer) {
+        customer.balance += inv.remainingAmount;
+        this.pushDoc('customers', customer.id, customer);
+      }
+    }
+
+    // 3. Remove associated reminders
+    const relatedReminders = this.data.reminders.filter(r => r.invoiceId === id);
+    relatedReminders.forEach(r => this.deleteDocCloud('reminders', r.id));
+    this.data.reminders = this.data.reminders.filter(r => r.invoiceId !== id);
+
+    // 4. Delete invoice record
+    this.data.invoices.splice(index, 1);
+    this.deleteDocCloud('invoices', id);
     this.notify();
   }
 

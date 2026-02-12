@@ -85,6 +85,17 @@ const Customers: React.FC = () => {
     setPaymentData({ amount: 0, method: PaymentMethod.CASH, note: '' });
   };
 
+  const handleDeleteInvoice = (id: string) => {
+    db.deleteInvoice(id);
+    setCustomers(db.getCustomers());
+    setViewingInvoice(null);
+    // Refresh selected customer to update balance/ledger
+    if (selectedCustomer) {
+      const updated = db.getCustomers().find(c => c.id === selectedCustomer.id);
+      setSelectedCustomer(updated || null);
+    }
+  };
+
   // Combine invoices and payments for the selected customer to show a ledger
   const ledger = useMemo(() => {
     if (!selectedCustomer) return [];
@@ -117,32 +128,32 @@ const Customers: React.FC = () => {
     <div className="space-y-6">
       {/* Header Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white border p-6 rounded-2xl shadow-sm flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
           <div>
             <p className="text-gray-400 text-sm">تعداد کل مشتریان</p>
-            <h4 className="text-2xl font-bold">{customers.length} نفر</h4>
+            <h4 className="text-2xl font-bold dark:text-white">{customers.length} نفر</h4>
           </div>
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl">👥</div>
+          <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center text-xl">👥</div>
         </div>
-        <div className="bg-white border p-6 rounded-2xl shadow-sm flex items-center justify-between col-span-2">
+        <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-2xl shadow-sm flex items-center justify-between col-span-2">
           <div>
             <p className="text-gray-400 text-sm">مجموع کل مطالبات (طلب فروشگاه)</p>
-            <h4 className="text-2xl font-bold text-red-600">{formatCurrency(totalDebts)}</h4>
+            <h4 className="text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totalDebts)}</h4>
           </div>
-          <div className="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center text-xl">💰</div>
+          <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl flex items-center justify-center text-xl">💰</div>
         </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Customer List Section */}
-        <section className="flex-1 bg-white border rounded-2xl overflow-hidden shadow-sm">
-          <div className="p-4 border-b bg-gray-50 flex justify-between items-center gap-4">
+        <section className="flex-1 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+          <div className="p-4 border-b dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center gap-4">
             <div className="relative flex-1">
               <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400">🔍</span>
               <input 
                 type="text" 
                 placeholder="جستجوی مشتری..." 
-                className="w-full pr-10 pl-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                className="w-full pr-10 pl-4 py-2 border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 dark:text-white"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -156,33 +167,33 @@ const Customers: React.FC = () => {
           </div>
           <div className="max-h-[600px] overflow-auto custom-scrollbar">
             <table className="w-full text-right">
-              <thead className="bg-gray-100 sticky top-0 z-10 text-xs font-bold text-gray-500">
+              <thead className="bg-gray-100 dark:bg-slate-800 sticky top-0 z-10 text-xs font-bold text-gray-500 dark:text-slate-400">
                 <tr>
                   <th className="p-4">نام مشتری</th>
                   <th className="p-4 text-center">وضعیت حساب</th>
                   <th className="p-4 text-left">عملیات</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                 {filteredCustomers.map(c => (
                   <tr 
                     key={c.id} 
                     onClick={() => setSelectedCustomer(c)}
-                    className={`cursor-pointer transition-colors ${selectedCustomer?.id === c.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                    className={`cursor-pointer transition-colors ${selectedCustomer?.id === c.id ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-slate-800/50'}`}
                   >
                     <td className="p-4">
-                      <div className="font-bold text-slate-700">{c.name}</div>
+                      <div className="font-bold text-slate-700 dark:text-slate-200">{c.name}</div>
                       <div className="text-xs text-gray-400 font-mono">{c.phone}</div>
                     </td>
                     <td className="p-4 text-center">
                       {c.balance < 0 ? (
-                        <span className="text-red-600 font-bold font-mono">{formatCurrency(Math.abs(c.balance))} بدهکار</span>
+                        <span className="text-red-600 dark:text-red-400 font-bold font-mono">{formatCurrency(Math.abs(c.balance))} بدهکار</span>
                       ) : (
-                        <span className="text-green-600 font-bold">تسویه</span>
+                        <span className="text-green-600 dark:text-green-400 font-bold">تسویه</span>
                       )}
                     </td>
                     <td className="p-4 text-left">
-                      <button className="text-blue-600 text-sm font-bold">نمایش دفتر ❮</button>
+                      <button className="text-blue-600 dark:text-blue-400 text-sm font-bold">نمایش دفتر ❮</button>
                     </td>
                   </tr>
                 ))}
@@ -258,7 +269,7 @@ const Customers: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="h-full bg-gray-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-8 text-center text-gray-400">
+            <div className="h-full bg-gray-50 dark:bg-slate-800/30 border-2 border-dashed dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center p-8 text-center text-gray-400">
               <span className="text-5xl mb-4">📄</span>
               <p>برای مشاهده ریز حساب و ثبت پرداختی، یک مشتری را از لیست انتخاب کنید.</p>
             </div>
@@ -269,7 +280,7 @@ const Customers: React.FC = () => {
       {/* Add/Edit Customer Modal */}
       {isCustomerModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border dark:border-slate-800">
             <div className="bg-blue-600 text-white p-4 font-bold flex justify-between">
               <span>{editingCustomer ? 'ویرایش اطلاعات مشتری' : 'افزودن مشتری جدید'}</span>
               <button onClick={() => setIsCustomerModalOpen(false)}>×</button>
@@ -277,15 +288,15 @@ const Customers: React.FC = () => {
             <form onSubmit={handleCustomerSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-bold mb-1">نام و نام خانوادگی</label>
-                <input required className="w-full p-2 border rounded-xl" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} />
+                <input required className="w-full p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">شماره تماس</label>
-                <input required className="w-full p-2 border rounded-xl font-mono text-left" dir="ltr" value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} />
+                <input required className="w-full p-2 border dark:border-slate-700 rounded-xl font-mono text-left bg-white dark:bg-slate-800 dark:text-white" dir="ltr" value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} />
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">یادداشت</label>
-                <textarea className="w-full p-2 border rounded-xl" rows={2} value={newCustomer.note} onChange={e => setNewCustomer({...newCustomer, note: e.target.value})} placeholder="آدرس یا توضیحات اضافی..." />
+                <textarea className="w-full p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white" rows={2} value={newCustomer.note} onChange={e => setNewCustomer({...newCustomer, note: e.target.value})} placeholder="آدرس یا توضیحات اضافی..." />
               </div>
               <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">
                 {editingCustomer ? 'ذخیره تغییرات' : 'ثبت مشتری'}
@@ -298,7 +309,7 @@ const Customers: React.FC = () => {
       {/* Record Payment Modal */}
       {isPaymentModalOpen && selectedCustomer && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border dark:border-slate-800">
             <div className="bg-green-600 text-white p-4 font-bold flex justify-between">
               <span>ثبت وجه دریافتی از {selectedCustomer.name}</span>
               <button onClick={() => setIsPaymentModalOpen(false)}>×</button>
@@ -306,18 +317,18 @@ const Customers: React.FC = () => {
             <form onSubmit={handleRecordPayment} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-bold mb-1">مبلغ دریافتی (تومان)</label>
-                <input required type="number" className="w-full p-2 border rounded-xl font-bold text-lg" value={paymentData.amount} onChange={e => setPaymentData({...paymentData, amount: parseInt(e.target.value) || 0})} />
+                <input required type="number" className="w-full p-2 border dark:border-slate-700 rounded-xl font-bold text-lg bg-white dark:bg-slate-800 dark:text-white" value={paymentData.amount} onChange={e => setPaymentData({...paymentData, amount: parseInt(e.target.value) || 0})} />
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">روش پرداخت</label>
-                <select className="w-full p-2 border rounded-xl" value={paymentData.method} onChange={e => setPaymentData({...paymentData, method: e.target.value as PaymentMethod})}>
+                <select className="w-full p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white" value={paymentData.method} onChange={e => setPaymentData({...paymentData, method: e.target.value as PaymentMethod})}>
                   <option value={PaymentMethod.CASH}>نقدی (صندوق)</option>
                   <option value={PaymentMethod.CARD}>کارت به کارت / پوز</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-bold mb-1">توضیحات (بابت...)</label>
-                <textarea className="w-full p-2 border rounded-xl" rows={2} value={paymentData.note} onChange={e => setPaymentData({...paymentData, note: e.target.value})} placeholder="مثال: بابت تسویه فاکتور شماره ۱۲۳" />
+                <textarea className="w-full p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white" rows={2} value={paymentData.note} onChange={e => setPaymentData({...paymentData, note: e.target.value})} placeholder="مثال: بابت تسویه فاکتور شماره ۱۲۳" />
               </div>
               <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-xl font-bold">تایید و ثبت دریافتی</button>
             </form>
@@ -326,7 +337,11 @@ const Customers: React.FC = () => {
       )}
 
       {/* Shared Invoice Modal */}
-      <InvoiceDetailModal invoice={viewingInvoice} onClose={() => setViewingInvoice(null)} />
+      <InvoiceDetailModal 
+        invoice={viewingInvoice} 
+        onClose={() => setViewingInvoice(null)} 
+        onDelete={handleDeleteInvoice}
+      />
     </div>
   );
 };
