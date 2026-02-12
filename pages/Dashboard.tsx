@@ -88,13 +88,13 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         
-        {/* Left Column: Low Stock & Debtors */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-6 md:space-y-8">
+        {/* Left Column: Low Stock & Debtors (Now lg:col-span-1 due to lg:grid-cols-2) */}
+        <div className="space-y-6 md:space-y-8">
           
           {/* Low Stock Table */}
-          <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
+          <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden h-fit">
             <div className="p-4 md:p-5 border-b dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center">
               <h4 className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                 ⚠️ کالاهای زیر حد نصاب موجودی
@@ -126,7 +126,7 @@ const Dashboard: React.FC = () => {
           </section>
 
           {/* Debtors Table */}
-          <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
+          <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden h-fit">
             <div className="p-4 md:p-5 border-b dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center">
               <h4 className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                 💸 لیست بدهکاران برتر
@@ -156,8 +156,8 @@ const Dashboard: React.FC = () => {
           </section>
         </div>
 
-        {/* Right Column: To-Do List (Enlarged for Desktop) */}
-        <section className="lg:col-span-5 xl:col-span-4 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm flex flex-col overflow-hidden h-fit ring-4 ring-blue-50/30 dark:ring-transparent">
+        {/* Right Column: To-Do List (Now Equal Width lg:col-span-1) */}
+        <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm flex flex-col overflow-hidden h-fit ring-4 ring-blue-50/30 dark:ring-transparent">
           <div className="p-5 md:p-6 border-b dark:border-slate-800 bg-blue-600 dark:bg-slate-800/50 flex justify-between items-center text-white">
             <h4 className="text-sm md:text-base font-black flex items-center gap-3">
               <span className="text-xl">📝</span>
@@ -177,9 +177,9 @@ const Dashboard: React.FC = () => {
               />
               <button 
                 type="submit" 
-                className="absolute left-3 top-2 bottom-2 px-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 font-bold active:scale-90"
+                className="absolute left-3 top-2 bottom-2 px-6 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 font-bold active:scale-95"
               >
-                ثبت
+                ثبت کار
               </button>
             </form>
 
