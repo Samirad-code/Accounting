@@ -31,8 +31,7 @@ const SearchableProductSelect: React.FC<SearchableProductSelectProps> = ({ value
 
   const filtered = products.filter(p => 
     p.name.includes(searchTerm) || 
-    (p.internalCode && p.internalCode.includes(searchTerm)) ||
-    (p.brand && p.brand.includes(searchTerm))
+    (p.internalCode && p.internalCode.includes(searchTerm))
   );
 
   return (
@@ -64,7 +63,7 @@ const SearchableProductSelect: React.FC<SearchableProductSelectProps> = ({ value
             >
               <div className="font-bold text-sm">
                 {p.name} 
-                {p.brand && <span className="text-[10px] text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded font-normal mr-2 inline-block">{p.brand}</span>}
+                <span className="text-[10px] text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded font-normal mr-2 inline-block">{p.category}</span>
               </div>
               <div className="text-[10px] text-gray-500 mt-1">موجودی: {p.quantity} | قیمت: {formatCurrency(p.retailPrice)}</div>
             </div>

@@ -260,7 +260,7 @@ class Database {
     this.notify();
   }
 
-  bulkUpdateProducts(ids: string[], updates: { retailPercent?: number, wholesalePercent?: number, costPercent?: number, quantity?: number, brand?: string }) {
+  bulkUpdateProducts(ids: string[], updates: { retailPercent?: number, wholesalePercent?: number, costPercent?: number, quantity?: number, category?: string }) {
     this.data.products = this.data.products.map(p => {
       if (ids.includes(p.id)) {
         let updated = { ...p };
@@ -268,7 +268,7 @@ class Database {
         if (updates.wholesalePercent !== undefined) updated.wholesalePrice = Math.round(updated.wholesalePrice * (1 + updates.wholesalePercent / 100));
         if (updates.costPercent !== undefined) updated.avgCost = Math.round(updated.avgCost * (1 + updates.costPercent / 100));
         if (updates.quantity !== undefined) updated.quantity = updates.quantity;
-        if (updates.brand !== undefined) updated.brand = updates.brand;
+        if (updates.category !== undefined) updated.category = updates.category;
         
         this.pushDoc('products', updated.id, updated);
         return updated;
@@ -338,7 +338,6 @@ class Database {
           this.pushDoc('products', product.id, product);
         }
       } else {
-        // Manual item - cost basis is 0 or user-provided if we had the field
         item.costBasisAtSale = 0;
       }
     });

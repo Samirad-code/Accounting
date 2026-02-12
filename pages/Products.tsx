@@ -13,7 +13,6 @@ const Products: React.FC = () => {
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -22,7 +21,6 @@ const Products: React.FC = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    brand: '',
     category: categories[0]?.name || '',
     internalCode: '',
     retailPrice: 0,
@@ -37,7 +35,7 @@ const Products: React.FC = () => {
     wholesalePercent: 0,
     costPercent: 0,
     quantity: undefined as number | undefined,
-    brand: ''
+    category: ''
   });
 
   const filteredProducts = useMemo(() => {
@@ -45,10 +43,9 @@ const Products: React.FC = () => {
       const matchSearch = 
         p.name.includes(searchTerm) || 
         p.id.includes(searchTerm) || 
-        (p.internalCode && p.internalCode.includes(searchTerm)) ||
-        (p.brand && p.brand.includes(searchTerm));
+        (p.internalCode && p.internalCode.includes(searchTerm));
       
-      const matchCategory = categoryFilter === 'ALL' || p.category === categoryFilter || p.brand === categoryFilter;
+      const matchCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
       const matchLowStock = !lowStockOnly || p.quantity <= p.lowStockThreshold;
       return matchSearch && matchCategory && matchLowStock;
     });
@@ -58,8 +55,6 @@ const Products: React.FC = () => {
         case 'name_asc': return a.name.localeCompare(b.name, 'fa');
         case 'name_desc': return b.name.localeCompare(a.name, 'fa');
         case 'category_asc': return a.category.localeCompare(b.category, 'fa');
-        case 'brand_asc': return (a.brand || '').localeCompare(b.brand || '', 'fa');
-        case 'brand_desc': return (b.brand || '').localeCompare(a.brand || '', 'fa');
         case 'qty_desc': return b.quantity - a.quantity;
         case 'qty_asc': return a.quantity - b.quantity;
         default: return 0;
@@ -69,13 +64,8 @@ const Products: React.FC = () => {
     return result;
   }, [products, searchTerm, categoryFilter, lowStockOnly, sortBy]);
 
-  const uniqueBrands = useMemo(() => {
-    const brands = products.map(p => p.brand).filter(Boolean) as string[];
-    return Array.from(new Set(brands)).sort((a, b) => a.localeCompare(b, 'fa'));
-  }, [products]);
-
   const toggleSelectAll = () => {
-    if (selectedIds.length === filteredProducts.length) {
+    if (selectedIds.length === filteredProducts.length && filteredProducts.length > 0) {
       setSelectedIds([]);
     } else {
       setSelectedIds(filteredProducts.map(p => p.id));
@@ -88,13 +78,31 @@ const Products: React.FC = () => {
 
   const openAddModal = () => {
     setEditingProduct(null);
-    setFormData({ name: '', brand: '', category: categories[0]?.name || '', internalCode: '', retailPrice: 0, wholesalePrice: 0, lowStockThreshold: 5, avgCost: 0, quantity: 0 });
+    setFormData({ 
+      name: '', 
+      category: categories[0]?.name || '', 
+      internalCode: '', 
+      retailPrice: 0, 
+      wholesalePrice: 0, 
+      lowStockThreshold: 5, 
+      avgCost: 0, 
+      quantity: 0 
+    });
     setIsModalOpen(true);
   };
 
   const openEditModal = (p: Product) => {
     setEditingProduct(p);
-    setFormData({ name: p.name, brand: p.brand || '', category: p.category, internalCode: p.internalCode || '', retailPrice: p.retailPrice, wholesalePrice: p.wholesalePrice, lowStockThreshold: p.lowStockThreshold, avgCost: p.avgCost, quantity: p.quantity });
+    setFormData({ 
+      name: p.name, 
+      category: p.category, 
+      internalCode: p.internalCode || '', 
+      retailPrice: p.retailPrice, 
+      wholesalePrice: p.wholesalePrice, 
+      lowStockThreshold: p.lowStockThreshold, 
+      avgCost: p.avgCost, 
+      quantity: p.quantity 
+    });
     setIsModalOpen(true);
   };
 
@@ -103,7 +111,12 @@ const Products: React.FC = () => {
     if (editingProduct) {
       db.updateProduct(editingProduct.id, formData);
     } else {
-      const newProduct: Product = { id: Date.now().toString(), ...formData, isActive: true, createdAt: new Date().toISOString() };
+      const newProduct: Product = { 
+        id: Date.now().toString(), 
+        ...formData, 
+        isActive: true, 
+        createdAt: new Date().toISOString() 
+      };
       db.addProduct(newProduct);
     }
     setProducts(db.getProducts());
@@ -122,12 +135,29 @@ const Products: React.FC = () => {
   const handleBulkUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     const updates: any = { ...bulkData };
-    if (!updates.brand) delete updates.brand;
+    if (!updates.category) delete updates.category;
     db.bulkUpdateProducts(selectedIds, updates);
     setProducts(db.getProducts());
     setIsBulkEditModalOpen(false);
     setSelectedIds([]);
-    setBulkData({ retailPercent: 0, wholesalePercent: 0, costPercent: 0, quantity: undefined, brand: '' });
+    setBulkData({ retailPercent: 0, wholesalePercent: 0, costPercent: 0, quantity: undefined, category: '' });
+  };
+
+  const exportExcel = () => {
+    const dataToExport = filteredProducts.map(p => ({
+      'کد سیستم': p.id,
+      'نام کالا': p.name,
+      'دسته‌بندی': p.category,
+      'کد کالا': p.internalCode || '---',
+      'موجودی': p.quantity,
+      'قیمت خرید (تومان)': p.avgCost,
+      'قیمت خرده‌فروشی (تومان)': p.retailPrice,
+      'قیمت عمده‌فروشی (تومان)': p.wholesalePrice,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'محصولات');
+    XLSX.writeFile(workbook, `products_export_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
@@ -137,7 +167,7 @@ const Products: React.FC = () => {
           <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400">🔍</span>
           <input 
             type="text" 
-            placeholder="جستجو کالا، برند یا کد..." 
+            placeholder="جستجو کالا یا کد..." 
             className="w-full pr-10 pl-4 py-3 border dark:border-slate-700 rounded-2xl outline-none shadow-sm bg-white dark:bg-slate-800 dark:text-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -145,6 +175,9 @@ const Products: React.FC = () => {
         </div>
         
         <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          <button onClick={exportExcel} className="flex-1 md:flex-none bg-emerald-600 text-white px-4 py-3 rounded-2xl hover:bg-emerald-700 transition-all font-bold flex items-center justify-center gap-2">
+            📊 خروجی اکسل
+          </button>
           <button onClick={() => setIsExcelModalOpen(true)} className="flex-1 md:flex-none bg-green-600 text-white px-4 py-3 rounded-2xl hover:bg-green-700 transition-all font-bold flex items-center justify-center gap-2">
             📥 ورود اکسل
           </button>
@@ -156,23 +189,18 @@ const Products: React.FC = () => {
 
       <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-2xl border dark:border-slate-700 shadow-sm flex flex-wrap items-center gap-6">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-400">فیلتر برند/دسته:</span>
+          <span className="text-xs font-bold text-gray-400">فیلتر دسته:</span>
           <select className="text-sm p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="ALL">همه موارد</option>
-            <optgroup label="برندها">
-              {uniqueBrands.map(brand => <option key={brand} value={brand}>{brand}</option>)}
-            </optgroup>
-            <optgroup label="دسته‌ها">
-              {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-            </optgroup>
+            <option value="ALL">همه دسته‌ها</option>
+            {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
           </select>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-gray-400">مرتب‌سازی:</span>
           <select className="text-sm p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="name_asc">نام (الف تا ی)</option>
-            <option value="brand_asc">برند (الف تا ی)</option>
-            <option value="brand_desc">برند (ی تا الف)</option>
+            <option value="name_desc">نام (ی تا الف)</option>
+            <option value="category_asc">دسته (الف تا ی)</option>
             <option value="qty_desc">موجودی (بیشترین)</option>
             <option value="qty_asc">موجودی (کمترین)</option>
           </select>
@@ -190,7 +218,7 @@ const Products: React.FC = () => {
               <th className="p-4 w-12 text-center">
                 <input type="checkbox" checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0} onChange={toggleSelectAll} className="w-4 h-4" />
               </th>
-              <th className="p-4">نام و برند</th>
+              <th className="p-4">نام محصول</th>
               <th className="p-4">دسته و کد</th>
               <th className="p-4 text-center">موجودی</th>
               <th className="p-4 text-center">قیمت خرید</th>
@@ -207,11 +235,10 @@ const Products: React.FC = () => {
                 </td>
                 <td className="p-4">
                   <div className="font-bold text-slate-700 dark:text-slate-200">{p.name}</div>
-                  <div className="text-[10px] text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded w-max mt-1">{p.brand || 'بدون برند'}</div>
                 </td>
                 <td className="p-4">
-                  <span className="text-xs text-slate-500">{p.category}</span>
-                  <div className="text-[10px] text-gray-400">کد: {p.internalCode || '---'}</div>
+                  <span className="text-[10px] text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded w-max">{p.category}</span>
+                  <div className="text-[10px] text-gray-400 mt-1">کد: {p.internalCode || '---'}</div>
                 </td>
                 <td className={`p-4 text-center ${getStockStatusColor(p.quantity, p.lowStockThreshold)} font-bold`}>{p.quantity}</td>
                 <td className="p-4 text-center text-gray-500 font-mono text-sm">{formatCurrency(p.avgCost)}</td>
@@ -240,8 +267,11 @@ const Products: React.FC = () => {
             <form onSubmit={handleBulkUpdate} className="p-8 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold mb-2">تغییر برند برای همه</label>
-                  <input type="text" placeholder="نام برند جدید..." className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={bulkData.brand} onChange={e => setBulkData({...bulkData, brand: e.target.value})} />
+                  <label className="block text-xs font-bold mb-2">تغییر دسته‌بندی برای همه</label>
+                  <select className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={bulkData.category} onChange={e => setBulkData({...bulkData, category: e.target.value})}>
+                    <option value="">بدون تغییر دسته‌بندی</option>
+                    {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold mb-2">تغییر درصد قیمت خرده</label>
@@ -283,11 +313,7 @@ const Products: React.FC = () => {
                   <label className="block text-sm font-bold mb-1">نام محصول</label>
                   <input required type="text" className="w-full p-3 border dark:border-slate-700 rounded-xl outline-none bg-white dark:bg-slate-800 dark:text-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                 </div>
-                <div>
-                  <label className="block text-sm font-bold mb-1">برند</label>
-                  <input type="text" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} />
-                </div>
-                <div>
+                <div className="col-span-2">
                   <label className="block text-sm font-bold mb-1">دسته</label>
                   <select required className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                     {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
