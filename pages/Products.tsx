@@ -18,6 +18,8 @@ const Products: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('name_asc');
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [quickEditingId, setQuickEditingId] = useState<string | null>(null);
+  const [quickCost, setQuickCost] = useState<number>(0);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -143,6 +145,69 @@ const Products: React.FC = () => {
     setBulkData({ retailPercent: 0, wholesalePercent: 0, costPercent: 0, quantity: undefined, category: '' });
   };
 
+  const handleQuickCostUpdate = (id: string, newCost: number) => {
+    const product = products.find(p => p.id === id);
+    if (!product) return;
+
+    const category = categories.find(c => c.name === product.category);
+    const retailMargin = category?.retailMargin ?? 50; // Default 50%
+    const wholesaleMargin = category?.wholesaleMargin ?? 20; // Default 20%
+
+    const updates = {
+      avgCost: newCost,
+      retailPrice: Math.round(newCost * (1 + retailMargin / 100)),
+      wholesalePrice: Math.round(newCost * (1 + wholesaleMargin / 100))
+    };
+
+    db.updateProduct(id, updates);
+    setProducts(db.getProducts());
+    setQuickEditingId(null);
+  };
+
+  const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          alert('فایل اکسل خالی است یا فرمت آن صحیح نیست.');
+          return;
+        }
+
+        const newProducts: Product[] = data.map((row: any) => ({
+          id: row['کد سیستم'] && row['کد سیستم'] !== '---' ? String(row['کد سیستم']) : Date.now().toString() + Math.random().toString(36).substr(2, 5),
+          name: String(row['نام کالا'] || 'کالای بدون نام'),
+          category: String(row['دسته‌بندی'] || categories[0]?.name || 'عمومی'),
+          internalCode: row['کد کالا'] === '---' ? '' : String(row['کد کالا'] || ''),
+          quantity: Number(row['موجودی']) || 0,
+          avgCost: Number(row['قیمت خرید (تومان)']) || 0,
+          retailPrice: Number(row['قیمت خرده‌فروشی (تومان)']) || 0,
+          wholesalePrice: Number(row['قیمت عمده‌فروشی (تومان)']) || 0,
+          lowStockThreshold: 5,
+          isActive: true,
+          createdAt: new Date().toISOString()
+        }));
+
+        db.addProducts(newProducts);
+        setProducts(db.getProducts());
+        setIsExcelModalOpen(false);
+        alert(`${newProducts.length} کالا با موفقیت وارد شد.`);
+      } catch (err) {
+        console.error(err);
+        alert('خطا در خواندن فایل اکسل. لطفا از صحت فرمت فایل مطمئن شوید.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const exportExcel = () => {
     const dataToExport = filteredProducts.map(p => ({
       'کد سیستم': p.id,
@@ -241,7 +306,35 @@ const Products: React.FC = () => {
                   <div className="text-[10px] text-gray-400 mt-1">کد: {p.internalCode || '---'}</div>
                 </td>
                 <td className={`p-4 text-center ${getStockStatusColor(p.quantity, p.lowStockThreshold)} font-bold`}>{p.quantity}</td>
-                <td className="p-4 text-center text-gray-500 font-mono text-sm">{formatCurrency(p.avgCost)}</td>
+                <td className="p-4 text-center">
+                  {quickEditingId === p.id ? (
+                    <div className="flex items-center gap-1 justify-center">
+                      <input 
+                        autoFocus
+                        type="number" 
+                        className="w-24 p-1 border dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-white text-xs text-center font-mono"
+                        value={quickCost}
+                        onChange={e => setQuickCost(Number(e.target.value))}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleQuickCostUpdate(p.id, quickCost);
+                          if (e.key === 'Escape') setQuickEditingId(null);
+                        }}
+                      />
+                      <button onClick={() => handleQuickCostUpdate(p.id, quickCost)} className="text-green-500 text-xs">✅</button>
+                    </div>
+                  ) : (
+                    <div 
+                      className="text-gray-500 font-mono text-sm cursor-pointer hover:text-blue-500 flex items-center justify-center gap-1 group/cost"
+                      onClick={() => {
+                        setQuickEditingId(p.id);
+                        setQuickCost(p.avgCost);
+                      }}
+                    >
+                      {formatCurrency(p.avgCost)}
+                      <span className="opacity-0 group-hover/cost:opacity-100 text-[10px]">✏️</span>
+                    </div>
+                  )}
+                </td>
                 <td className="p-4 text-center text-blue-600 font-bold font-mono">{formatCurrency(p.retailPrice)}</td>
                 <td className="p-4 text-center text-indigo-600 font-bold font-mono">{formatCurrency(p.wholesalePrice)}</td>
                 <td className="p-4 text-center">
@@ -255,6 +348,44 @@ const Products: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Excel Import Modal */}
+      {isExcelModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-200 border dark:border-slate-700">
+            <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
+              <h3 className="text-xl font-bold">ورود کالاها از اکسل</h3>
+              <button onClick={() => setIsExcelModalOpen(false)} className="text-2xl">×</button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300 space-y-2">
+                <p className="font-bold">راهنمای فرمت فایل:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>ستون‌ها باید شامل: نام کالا، دسته‌بندی، موجودی، قیمت خرید (تومان)، قیمت خرده‌فروشی (تومان) باشد.</li>
+                  <li>می‌توانید ابتدا یک خروجی اکسل بگیرید و از همان فرمت برای ورود اطلاعات استفاده کنید.</li>
+                  <li>کد سیستم در صورت وجود برای بروزرسانی استفاده می‌شود، در غیر این صورت کالای جدید ساخته می‌شود.</li>
+                </ul>
+              </div>
+              
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl p-10 hover:border-blue-500 transition-all cursor-pointer relative">
+                <input 
+                  type="file" 
+                  accept=".xlsx, .xls" 
+                  onChange={handleExcelImport}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+                <div className="text-4xl mb-4">📁</div>
+                <p className="text-slate-600 dark:text-slate-400 font-bold">انتخاب فایل اکسل</p>
+                <p className="text-xs text-slate-400 mt-2">فرمت‌های مجاز: .xlsx, .xls</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setIsExcelModalOpen(false)} className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 py-4 rounded-xl font-bold">بستن</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bulk Edit Modal */}
       {isBulkEditModalOpen && (

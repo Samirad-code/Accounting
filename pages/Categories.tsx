@@ -11,24 +11,45 @@ const Categories: React.FC = () => {
   
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [categoryName, setCategoryName] = useState('');
+  const [retailMargin, setRetailMargin] = useState<number | ''>('');
+  const [wholesaleMargin, setWholesaleMargin] = useState<number | ''>('');
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoryName.trim()) return;
-    db.addCategory(categoryName.trim());
+    db.addCategory(
+      categoryName.trim(), 
+      retailMargin === '' ? undefined : Number(retailMargin), 
+      wholesaleMargin === '' ? undefined : Number(wholesaleMargin)
+    );
     setCategories([...db.getCategories()]);
     setCategoryName('');
+    setRetailMargin('');
+    setWholesaleMargin('');
     setIsAddModalOpen(false);
   };
 
   const handleEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCategory || !categoryName.trim()) return;
-    db.updateCategory(selectedCategory.id, categoryName.trim());
+    db.updateCategory(selectedCategory.id, {
+      name: categoryName.trim(),
+      retailMargin: retailMargin === '' ? undefined : Number(retailMargin),
+      wholesaleMargin: wholesaleMargin === '' ? undefined : Number(wholesaleMargin)
+    });
     setCategories([...db.getCategories()]);
     setIsEditModalOpen(false);
     setSelectedCategory(null);
     setCategoryName('');
+    setRetailMargin('');
+    setWholesaleMargin('');
+  };
+
+  const handleApplyMargins = (categoryId: string) => {
+    if (confirm('آیا مطمئن هستید که می‌خواهید قیمت تمام محصولات این دسته را بر اساس درصدهای تعیین شده بروزرسانی کنید؟')) {
+      db.applyCategoryMargins(categoryId);
+      alert('قیمت محصولات با موفقیت بروزرسانی شد.');
+    }
   };
 
   const handleDelete = () => {
@@ -59,31 +80,53 @@ const Categories: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {categories.map(cat => (
-          <div key={cat.id} className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-5 rounded-2xl shadow-sm flex justify-between items-center group hover:border-blue-200 dark:hover:border-blue-900 transition-all">
-            <span className="font-bold text-slate-700 dark:text-slate-200">{cat.name}</span>
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
-                onClick={() => {
-                  setSelectedCategory(cat);
-                  setCategoryName(cat.name);
-                  setIsEditModalOpen(true);
-                }}
-                className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                title="ویرایش"
-              >
-                ✏️
-              </button>
-              <button 
-                onClick={() => {
-                  setSelectedCategory(cat);
-                  setIsDeleteModalOpen(true);
-                }}
-                className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
-                title="حذف"
-              >
-                🗑️
-              </button>
+          <div key={cat.id} className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-5 rounded-2xl shadow-sm flex flex-col group hover:border-blue-200 dark:hover:border-blue-900 transition-all">
+            <div className="flex justify-between items-center mb-4">
+              <span className="font-bold text-slate-700 dark:text-slate-200">{cat.name}</span>
+              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={() => {
+                    setSelectedCategory(cat);
+                    setCategoryName(cat.name);
+                    setRetailMargin(cat.retailMargin ?? '');
+                    setWholesaleMargin(cat.wholesaleMargin ?? '');
+                    setIsEditModalOpen(true);
+                  }}
+                  className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  title="ویرایش"
+                >
+                  ✏️
+                </button>
+                <button 
+                  onClick={() => {
+                    setSelectedCategory(cat);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                  title="حذف"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
+            
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl text-center">
+                <p className="text-[10px] text-slate-400 font-bold uppercase">سود خرده</p>
+                <p className="text-sm font-black text-blue-600 dark:text-blue-400">{cat.retailMargin ?? 0}%</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl text-center">
+                <p className="text-[10px] text-slate-400 font-bold uppercase">سود عمده</p>
+                <p className="text-sm font-black text-purple-600 dark:text-purple-400">{cat.wholesaleMargin ?? 0}%</p>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => handleApplyMargins(cat.id)}
+              className="w-full py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-all"
+            >
+              🔄 بروزرسانی قیمت محصولات
+            </button>
           </div>
         ))}
       </div>
@@ -107,6 +150,28 @@ const Categories: React.FC = () => {
                   value={categoryName}
                   onChange={e => setCategoryName(e.target.value)}
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-slate-400 mb-2">درصد سود خرده‌فروشی</label>
+                  <input 
+                    type="number" 
+                    placeholder="مثلا ۵۰"
+                    className="w-full p-3 border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 dark:text-white"
+                    value={retailMargin}
+                    onChange={e => setRetailMargin(e.target.value === '' ? '' : Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-slate-400 mb-2">درصد سود عمده‌فروشی</label>
+                  <input 
+                    type="number" 
+                    placeholder="مثلا ۲۰"
+                    className="w-full p-3 border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 dark:text-white"
+                    value={wholesaleMargin}
+                    onChange={e => setWholesaleMargin(e.target.value === '' ? '' : Number(e.target.value))}
+                  />
+                </div>
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg">ثبت دسته</button>
@@ -136,6 +201,26 @@ const Categories: React.FC = () => {
                   value={categoryName}
                   onChange={e => setCategoryName(e.target.value)}
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-slate-400 mb-2">درصد سود خرده‌فروشی</label>
+                  <input 
+                    type="number" 
+                    className="w-full p-3 border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 dark:text-white"
+                    value={retailMargin}
+                    onChange={e => setRetailMargin(e.target.value === '' ? '' : Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-slate-400 mb-2">درصد سود عمده‌فروشی</label>
+                  <input 
+                    type="number" 
+                    className="w-full p-3 border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 dark:text-white"
+                    value={wholesaleMargin}
+                    onChange={e => setWholesaleMargin(e.target.value === '' ? '' : Number(e.target.value))}
+                  />
+                </div>
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="submit" className="flex-1 bg-blue-600 text-white p-3 rounded-xl font-bold hover:bg-blue-700">بروزرسانی</button>

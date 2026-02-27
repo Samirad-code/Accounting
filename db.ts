@@ -201,28 +201,54 @@ class Database {
   getTodos() { return this.data.todos; }
   getCategories() { return this.data.categories; }
 
-  addCategory(name: string) {
-    const category: Category = { id: 'cat-' + Date.now() + '-' + Math.floor(Math.random() * 10000), name };
+  addCategory(name: string, retailMargin?: number, wholesaleMargin?: number) {
+    const category: Category = { 
+      id: 'cat-' + Date.now() + '-' + Math.floor(Math.random() * 10000), 
+      name,
+      retailMargin,
+      wholesaleMargin
+    };
     this.data.categories.push(category);
     this.pushDoc('categories', category.id, category);
     this.notify();
     return category;
   }
 
-  updateCategory(id: string, name: string) {
+  updateCategory(id: string, updates: Partial<Category>) {
     const category = this.data.categories.find(c => c.id === id);
     if (category) {
       const oldName = category.name;
-      category.name = name;
+      Object.assign(category, updates);
       this.pushDoc('categories', id, category);
-      this.data.products.forEach(p => {
-        if (p.category === oldName) {
-          p.category = name;
-          this.pushDoc('products', p.id, p);
-        }
-      });
+      
+      if (updates.name && updates.name !== oldName) {
+        this.data.products.forEach(p => {
+          if (p.category === oldName) {
+            p.category = updates.name!;
+            this.pushDoc('products', p.id, p);
+          }
+        });
+      }
       this.notify();
     }
+  }
+
+  applyCategoryMargins(categoryId: string) {
+    const category = this.data.categories.find(c => c.id === categoryId);
+    if (!category || (category.retailMargin === undefined && category.wholesaleMargin === undefined)) return;
+
+    this.data.products.forEach(p => {
+      if (p.category === category.name) {
+        if (category.retailMargin !== undefined) {
+          p.retailPrice = Math.round(p.avgCost * (1 + category.retailMargin / 100));
+        }
+        if (category.wholesaleMargin !== undefined) {
+          p.wholesalePrice = Math.round(p.avgCost * (1 + category.wholesaleMargin / 100));
+        }
+        this.pushDoc('products', p.id, p);
+      }
+    });
+    this.notify();
   }
 
   deleteCategory(id: string) {
@@ -239,7 +265,12 @@ class Database {
 
   addProducts(products: Product[]) {
     products.forEach((product) => {
-      this.data.products.push(product);
+      const index = this.data.products.findIndex(p => p.id === product.id);
+      if (index !== -1) {
+        this.data.products[index] = { ...this.data.products[index], ...product };
+      } else {
+        this.data.products.push(product);
+      }
       this.pushDoc('products', product.id, product);
     });
     this.notify();

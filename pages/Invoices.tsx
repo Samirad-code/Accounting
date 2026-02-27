@@ -57,12 +57,32 @@ const Invoices: React.FC = () => {
       const matchCustomer = customerFilter === 'ALL' || inv.customerId === customerFilter;
       
       const invDate = new Date(inv.date);
-      const matchStart = !startDate || invDate >= new Date(startDate);
-      const matchEnd = !endDate || invDate <= new Date(endDate);
+      
+      let matchStart = true;
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        matchStart = invDate >= start;
+      }
+
+      let matchEnd = true;
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        matchEnd = invDate <= end;
+      }
 
       return matchSearch && matchType && matchCustomer && matchStart && matchEnd;
     });
   }, [invoices, searchTerm, typeFilter, customerFilter, startDate, endDate]);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('ALL');
+    setCustomerFilter('ALL');
+    setStartDate('');
+    setEndDate('');
+  };
 
   const handleOpenAddMode = () => {
     setNewInv({
@@ -189,7 +209,18 @@ const Invoices: React.FC = () => {
             </div>
             <div>
               <label className="block text-xs font-bold mb-1">روش تسویه</label>
-              <select className="w-full p-2.5 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={newInv.paymentMethod} onChange={e => setNewInv({ ...newInv, paymentMethod: e.target.value as PaymentMethod })}>
+              <select 
+                className="w-full p-2.5 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" 
+                value={newInv.paymentMethod} 
+                onChange={e => {
+                  const method = e.target.value as PaymentMethod;
+                  const updates: any = { paymentMethod: method };
+                  if (method === PaymentMethod.CARD) {
+                    updates.paidAmount = finalTotal;
+                  }
+                  setNewInv({ ...newInv, ...updates });
+                }}
+              >
                 <option value={PaymentMethod.CASH}>نقدی</option>
                 <option value={PaymentMethod.CARD}>کارت</option>
                 <option value={PaymentMethod.DEBT}>نسیه</option>
@@ -273,13 +304,170 @@ const Invoices: React.FC = () => {
     );
   }
 
+  const handleDelete = (id: string) => {
+    try {
+      db.deleteInvoice(id);
+      setInvoices(db.getInvoices());
+      setViewingInvoice(null);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleEdit = (id: string) => {
+    const inv = invoices.find(i => i.id === id);
+    if (!inv) return;
+    
+    setNewInv({
+      date: inv.date,
+      type: inv.type,
+      customerId: inv.customerId || '',
+      items: inv.items.map(i => ({
+        productId: i.productId || '',
+        manualName: i.productId ? undefined : i.productName,
+        qty: i.qty,
+        unitPrice: i.unitPrice
+      })),
+      paidAmount: inv.paidAmount,
+      discountTotal: inv.discountTotal,
+      paymentMethod: PaymentMethod.CASH,
+      dueDate: inv.dueDate || ''
+    });
+    setEditingInvoiceId(id);
+    setIsAddMode(true);
+    setViewingInvoice(null);
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-xl font-bold">فاکتورهای فروش</h3>
-        <button onClick={handleOpenAddMode} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all">➕ صدور فاکتور جدید</button>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl border dark:border-slate-800 shadow-sm">
+        <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+          🧾 فاکتورهای فروش
+        </h3>
+        <button onClick={handleOpenAddMode} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm flex items-center gap-2">
+          ➕ صدور فاکتور جدید
+        </button>
       </div>
-      {/* Existing List View code remains here... */}
+
+      {/* Filters */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border dark:border-slate-800 shadow-sm space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">جستجو</label>
+            <div className="relative">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+              <input 
+                type="text" 
+                placeholder="شماره فاکتور یا نام مشتری..." 
+                className="w-full p-2.5 pr-10 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white outline-none text-sm focus:ring-2 focus:ring-blue-500/20 transition-all"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">نوع فاکتور</label>
+            <select 
+              className="w-full p-2.5 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white outline-none text-sm"
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value as any)}
+            >
+              <option value="ALL">همه موارد</option>
+              <option value={InvoiceType.RETAIL}>خرده‌فروشی</option>
+              <option value={InvoiceType.WHOLESALE}>عمده‌فروشی</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">مشتری</label>
+            <select 
+              className="w-full p-2.5 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white outline-none text-sm"
+              value={customerFilter}
+              onChange={e => setCustomerFilter(e.target.value)}
+            >
+              <option value="ALL">همه مشتریان</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button 
+              onClick={clearFilters}
+              className="w-full p-2.5 text-slate-500 hover:text-red-500 font-bold text-xs transition-colors flex items-center justify-center gap-1"
+            >
+              🔄 پاکسازی فیلترها
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t dark:border-slate-800">
+          <JalaliDatePicker label="از تاریخ" value={startDate} onChange={setStartDate} />
+          <JalaliDatePicker label="تا تاریخ" value={endDate} onChange={setEndDate} />
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-right text-sm">
+            <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300">
+              <tr>
+                <th className="p-4 font-bold">شماره فاکتور</th>
+                <th className="p-4 font-bold">تاریخ</th>
+                <th className="p-4 font-bold">مشتری</th>
+                <th className="p-4 font-bold">نوع</th>
+                <th className="p-4 font-bold">مبلغ کل</th>
+                <th className="p-4 font-bold">وضعیت</th>
+                <th className="p-4 font-bold text-center">عملیات</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                    هیچ فاکتوری یافت نشد.
+                  </td>
+                </tr>
+              ) : (
+                filteredInvoices.map(inv => (
+                  <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="p-4 font-mono font-bold text-slate-700 dark:text-slate-200">{inv.invoiceNumber}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300 font-mono text-xs">{formatJalali(inv.date)}</td>
+                    <td className="p-4 font-bold text-slate-800 dark:text-slate-200">{inv.customerName || 'مشتری گذری'}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded-md text-xs font-bold ${inv.type === InvoiceType.RETAIL ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
+                        {inv.type === InvoiceType.RETAIL ? 'خرده‌فروشی' : 'عمده‌فروشی'}
+                      </span>
+                    </td>
+                    <td className="p-4 font-mono font-bold text-slate-800 dark:text-slate-200">{formatCurrency(inv.totalAmount)}</td>
+                    <td className="p-4">
+                      {inv.remainingAmount === 0 ? (
+                        <span className="text-green-600 dark:text-green-400 font-bold text-xs bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-md">تسویه شده</span>
+                      ) : (
+                        <span className="text-red-500 dark:text-red-400 font-bold text-xs bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md">بدهکار: {formatCurrency(inv.remainingAmount)}</span>
+                      )}
+                    </td>
+                    <td className="p-4 text-center">
+                      <button 
+                        onClick={() => setViewingInvoice(inv)}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-bold text-xs bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        مشاهده / چاپ
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {viewingInvoice && (
+        <InvoiceDetailModal 
+          invoice={viewingInvoice} 
+          onClose={() => setViewingInvoice(null)} 
+          onDelete={handleDelete}
+          onEdit={handleEdit}
+        />
+      )}
     </div>
   );
 };

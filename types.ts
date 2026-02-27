@@ -27,6 +27,8 @@ export interface Todo {
 export interface Category {
   id: string;
   name: string;
+  retailMargin?: number; // Percentage, e.g., 50 for 50%
+  wholesaleMargin?: number; // Percentage, e.g., 20 for 20%
 }
 
 export interface Product {
