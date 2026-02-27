@@ -361,19 +361,19 @@ const Reports: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Filter Bar */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border dark:border-slate-800 space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="space-y-1">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">فیلتر گزارشات</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">بازه زمانی مورد نظر خود را برای تحلیل سود و زیان انتخاب کنید.</p>
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 space-y-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+          <div className="space-y-2">
+            <h3 className="text-2xl font-black text-slate-800 dark:text-white">گزارشات سود و زیان</h3>
+            <p className="text-sm font-bold text-slate-500 dark:text-slate-400">تحلیل دقیق عملکرد مالی در بازه‌های زمانی مختلف</p>
           </div>
           
-          <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+          <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
             {(['today', 'month', 'year', 'custom'] as const).map(mode => (
               <button
                 key={mode}
                 onClick={() => setDateRange(mode)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${dateRange === mode ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                className={`px-6 py-3 rounded-xl text-xs font-black transition-all whitespace-nowrap uppercase tracking-widest ${dateRange === mode ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xl' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
               >
                 {mode === 'today' ? 'امروز' : mode === 'month' ? '۳۰ روز اخیر' : mode === 'year' ? 'سال اخیر' : 'بازه دلخواه'}
               </button>
@@ -382,77 +382,90 @@ const Reports: React.FC = () => {
         </div>
 
         {dateRange === 'custom' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6 bg-blue-50/30 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-2">
-            <JalaliDatePicker 
-              label="تاریخ شروع گزارش"
-              value={customStart}
-              onChange={setCustomStart}
-              placeholder="انتخاب تاریخ شروع..."
-              className="w-full"
-            />
-            <JalaliDatePicker 
-              label="تاریخ پایان گزارش"
-              value={customEnd}
-              onChange={setCustomEnd}
-              placeholder="انتخاب تاریخ پایان..."
-              className="w-full"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-8 bg-blue-50/30 dark:bg-blue-900/10 rounded-[2rem] border border-blue-100 dark:border-blue-900/30 animate-in slide-in-from-top-4 duration-500">
+            <div className="space-y-3">
+              <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest px-1">تاریخ شروع گزارش:</span>
+              <JalaliDatePicker 
+                value={customStart}
+                onChange={setCustomStart}
+                placeholder="انتخاب تاریخ شروع..."
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-3">
+              <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest px-1">تاریخ پایان گزارش:</span>
+              <JalaliDatePicker 
+                value={customEnd}
+                onChange={setCustomEnd}
+                placeholder="انتخاب تاریخ پایان..."
+                className="w-full"
+              />
+            </div>
           </div>
         )}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-3xl shadow-sm">
-          <p className="text-slate-400 dark:text-slate-500 text-[10px] font-bold mb-2 uppercase tracking-wider">فروش ناخالص</p>
-          <h4 className="text-xl font-black text-slate-800 dark:text-white">{formatCurrency(stats.grossSales)}</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all group">
+          <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black mb-4 uppercase tracking-widest group-hover:text-blue-500 transition-colors">فروش ناخالص</p>
+          <h4 className="text-2xl font-black text-slate-800 dark:text-white font-mono">{formatCurrency(stats.grossSales)}</h4>
         </div>
-        <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-3xl shadow-sm">
-          <p className="text-red-400 dark:text-red-500 text-[10px] font-bold mb-2 uppercase tracking-wider">بهای تمام شده</p>
-          <h4 className="text-xl font-black text-red-600 dark:text-red-400">-{formatCurrency(stats.totalCogs)}</h4>
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all group">
+          <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black mb-4 uppercase tracking-widest group-hover:text-rose-500 transition-colors">بهای تمام شده</p>
+          <h4 className="text-2xl font-black text-rose-600 dark:text-rose-400 font-mono">-{formatCurrency(stats.totalCogs)}</h4>
         </div>
-        <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-6 rounded-3xl shadow-sm">
-          <p className="text-orange-400 dark:text-orange-500 text-[10px] font-bold mb-2 uppercase tracking-wider">تخفیفات</p>
-          <h4 className="text-xl font-black text-orange-600 dark:text-orange-400">-{formatCurrency(stats.totalDiscounts)}</h4>
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all group">
+          <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black mb-4 uppercase tracking-widest group-hover:text-amber-500 transition-colors">تخفیفات</p>
+          <h4 className="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">-{formatCurrency(stats.totalDiscounts)}</h4>
         </div>
-        <div className="bg-gradient-to-br from-green-600 to-green-700 p-6 rounded-3xl shadow-xl">
-          <p className="text-green-100 text-[10px] font-bold mb-2 uppercase tracking-wider">سود خالص</p>
-          <h4 className="text-2xl font-black text-white">{formatCurrency(stats.netProfit)}</h4>
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] shadow-2xl shadow-blue-500/20 hover:scale-[1.02] transition-all">
+          <p className="text-blue-100 text-[10px] font-black mb-4 uppercase tracking-widest opacity-80">سود خالص نهایی</p>
+          <h4 className="text-3xl font-black text-white font-mono">{formatCurrency(stats.netProfit)}</h4>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Category Performance */}
-        <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
-          <div className="p-5 bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-700">
-            <h5 className="font-bold text-slate-700 dark:text-slate-200 text-sm">سوددهی به تفکیک دسته‌بندی</h5>
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-sm">
+          <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+            <h5 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest">سوددهی به تفکیک دسته‌بندی</h5>
           </div>
-          <div className="p-8 space-y-6">
+          <div className="p-8 space-y-8">
             {Object.entries(stats.categoryProfit).length > 0 ? (Object.entries(stats.categoryProfit) as [string, CategoryStat][]).map(([name, data]) => (
-              <div key={name} className="space-y-2 group">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className="text-slate-600 dark:text-slate-400">{name}</span>
-                  <span className="text-green-600 dark:text-green-400">{formatCurrency(data.profit)} سود</span>
+              <div key={name} className="space-y-3 group">
+                <div className="flex justify-between items-end">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">نام دسته</span>
+                    <p className="text-sm font-black text-slate-700 dark:text-slate-300">{name}</p>
+                  </div>
+                  <div className="text-left">
+                    <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">مبلغ سود</span>
+                    <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(data.profit)}</p>
+                  </div>
                 </div>
-                <div className="h-2 w-full bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
                   <div 
-                    className="h-full bg-blue-500 rounded-full transition-all duration-1000" 
+                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-1000 shadow-lg" 
                     style={{ width: `${Math.min(100, (data.profit / Math.max(1, stats.netProfit)) * 100)}%` }}
                   ></div>
                 </div>
               </div>
             )) : (
-              <p className="text-center text-gray-400 py-10">داده‌ای یافت نشد</p>
+              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                <span className="text-4xl mb-4 opacity-20">📊</span>
+                <p className="text-xs font-bold italic">داده‌ای یافت نشد</p>
+              </div>
             )}
           </div>
         </div>
 
         {/* Top Products */}
-        <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
-          <div className="p-5 bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-700 flex justify-between items-center">
-            <h5 className="font-bold text-slate-700 dark:text-slate-200 text-sm">برترین محصولات سودآور</h5>
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-sm">
+          <div className="p-6 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <h5 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-widest">برترین محصولات سودآور</h5>
             <select 
-              className="text-[10px] font-bold p-1 rounded-lg border dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white outline-none"
+              className="text-[10px] font-black p-2 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white outline-none focus:border-blue-500 transition-all"
               value={productSortBy}
               onChange={(e) => setProductSortBy(e.target.value as any)}
             >
@@ -460,50 +473,84 @@ const Reports: React.FC = () => {
               <option value="percent">بر اساس درصد سود</option>
             </select>
           </div>
-          <div className="divide-y dark:divide-slate-800">
+          <div className="divide-y divide-slate-50 dark:divide-slate-800">
             {stats.topProducts.map((p, idx) => (
-              <div key={idx} className="p-4 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-slate-800/50">
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{p.name}</span>
-                  <span className="text-[10px] text-slate-400 font-bold">درصد سود: {p.percent.toFixed(1)}%</span>
+              <div key={idx} className="p-6 flex justify-between items-center hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all group">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-black text-slate-800 dark:text-slate-200 group-hover:text-blue-600 transition-colors">{p.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">درصد سود:</span>
+                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg">{p.percent.toFixed(1)}%</span>
+                  </div>
                 </div>
-                <span className="text-sm font-black text-green-600 font-mono">{formatCurrency(p.profit)}</span>
+                <div className="text-left">
+                  <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest block mb-1">سود خالص</span>
+                  <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(p.profit)}</span>
+                </div>
               </div>
             ))}
+            {stats.topProducts.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                <span className="text-4xl mb-4 opacity-20">🏆</span>
+                <p className="text-xs font-bold italic">داده‌ای یافت نشد</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Transaction List (New Section) */}
-      <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
-        <div className="p-5 bg-slate-800 text-white flex justify-between items-center">
-          <h5 className="font-bold text-sm flex items-center gap-2">🧾 لیست فاکتورهای این بازه</h5>
-          <span className="text-xs bg-white/20 px-2 py-1 rounded-lg">{filteredInvoices.length} فاکتور</span>
+      {/* Transaction List */}
+      <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] overflow-hidden shadow-sm">
+        <div className="p-8 bg-slate-900 text-white flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="space-y-1">
+            <h5 className="text-xl font-black flex items-center gap-3">
+              <span className="text-2xl">🧾</span>
+              لیست فاکتورهای این بازه
+            </h5>
+            <p className="text-slate-400 text-xs font-bold">نمایش تمامی فاکتورهای ثبت شده در بازه زمانی انتخاب شده</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 shadow-inner">
+            <span className="text-xs font-black uppercase tracking-widest opacity-60 ml-2">تعداد کل:</span>
+            <span className="text-lg font-black">{filteredInvoices.length} فاکتور</span>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-right text-sm">
-            <thead className="bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 font-bold text-xs">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-right">
+            <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 font-black text-[10px] uppercase tracking-widest">
               <tr>
-                <th className="p-4">شماره فاکتور</th>
-                <th className="p-4">مشتری</th>
-                <th className="p-4 text-center">مبلغ کل</th>
-                <th className="p-4 text-center">باقیمانده</th>
-                <th className="p-4 text-center">تاریخ</th>
-                <th className="p-4 text-left">عملیات</th>
+                <th className="p-6">شماره فاکتور</th>
+                <th className="p-6">مشتری</th>
+                <th className="p-6 text-center">مبلغ کل</th>
+                <th className="p-6 text-center">باقیمانده</th>
+                <th className="p-6 text-center">تاریخ</th>
+                <th className="p-6 text-left">عملیات</th>
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {filteredInvoices.map(inv => (
-                <tr key={inv.id} className="hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
-                  <td className="p-4 font-bold text-slate-700 dark:text-slate-200">{inv.invoiceNumber}</td>
-                  <td className="p-4 text-slate-600 dark:text-slate-400">{inv.customerName || 'مشتری گذری'}</td>
-                  <td className="p-4 text-center font-bold font-mono text-blue-600 dark:text-blue-400">{formatCurrency(inv.totalAmount)}</td>
-                  <td className="p-4 text-center font-bold font-mono text-rose-500">{formatCurrency(inv.remainingAmount)}</td>
-                  <td className="p-4 text-center text-xs text-gray-400">{formatJalali(inv.date)}</td>
-                  <td className="p-4 text-left">
+                <tr key={inv.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all group">
+                  <td className="p-6 font-black text-slate-800 dark:text-slate-200">#{inv.invoiceNumber}</td>
+                  <td className="p-6">
+                    <div className="font-bold text-slate-700 dark:text-slate-300">{inv.customerName || 'مشتری گذری'}</div>
+                  </td>
+                  <td className="p-6 text-center font-black font-mono text-blue-600 dark:text-blue-400">{formatCurrency(inv.totalAmount)}</td>
+                  <td className="p-6 text-center">
+                    {inv.remainingAmount > 0 ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-3 py-1 rounded-lg uppercase tracking-widest">بدهی</span>
+                        <span className="text-xs font-black font-mono text-rose-500">{formatCurrency(inv.remainingAmount)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 rounded-lg uppercase tracking-widest">تسویه شده</span>
+                    )}
+                  </td>
+                  <td className="p-6 text-center">
+                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 font-mono">{formatJalali(inv.date)}</span>
+                  </td>
+                  <td className="p-6 text-left">
                     <button 
                       onClick={() => setViewingInvoice(inv)}
-                      className="bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white px-4 py-1 rounded-lg font-bold text-xs transition-all"
+                      className="bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 shadow-sm"
                     >
                       مشاهده و عملیات
                     </button>
@@ -512,7 +559,12 @@ const Reports: React.FC = () => {
               ))}
               {filteredInvoices.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-gray-400 italic">هیچ فاکتوری در این بازه زمانی ثبت نشده است.</td>
+                  <td colSpan={6} className="p-24 text-center">
+                    <div className="flex flex-col items-center justify-center text-slate-400">
+                      <span className="text-6xl mb-4 opacity-10">📄</span>
+                      <p className="text-sm font-bold italic">هیچ فاکتوری در این بازه زمانی ثبت نشده است.</p>
+                    </div>
+                  </td>
                 </tr>
               )}
             </tbody>

@@ -72,6 +72,7 @@ class Database {
   }
 
   async init(): Promise<void> {
+    this.seedData();
     const configStr = localStorage.getItem('firebase_config');
     if (configStr) {
       this.connectFirebase(JSON.parse(configStr));
@@ -525,6 +526,38 @@ class Database {
     this.data.todos = this.data.todos.filter(t => t.id !== id);
     this.deleteDocCloud('todos', id);
     this.notify();
+  }
+
+  seedData() {
+    if (this.data.products.length > 0) return;
+
+    const cats: Category[] = [
+      { id: 'cat-1', name: 'نایلون و نایلکس', retailMargin: 50, wholesaleMargin: 20 },
+      { id: 'cat-2', name: 'ظروف یکبار مصرف', retailMargin: 40, wholesaleMargin: 15 },
+      { id: 'cat-3', name: 'شوینده و بهداشتی', retailMargin: 30, wholesaleMargin: 10 }
+    ];
+    this.data.categories = cats;
+
+    const prods: Product[] = [
+      { id: 'p1', name: 'نایلون دسته‌دار سایز ۴۰', category: 'نایلون و نایلکس', retailPrice: 75000, wholesalePrice: 60000, avgCost: 50000, quantity: 100, lowStockThreshold: 20, isActive: true, createdAt: new Date().toISOString() },
+      { id: 'p2', name: 'لیوان یکبار مصرف ۵۰۰ عددی', category: 'ظروف یکبار مصرف', retailPrice: 140000, wholesalePrice: 115000, avgCost: 100000, quantity: 50, lowStockThreshold: 10, isActive: true, createdAt: new Date().toISOString() },
+      { id: 'p3', name: 'مایع ظرفشویی ۴ لیتری', category: 'شوینده و بهداشتی', retailPrice: 130000, wholesalePrice: 110000, avgCost: 100000, quantity: 5, lowStockThreshold: 10, isActive: true, createdAt: new Date().toISOString() }
+    ];
+    this.data.products = prods;
+
+    const custs: Customer[] = [
+      { id: 'c1', name: 'فروشگاه مرکزی', phone: '۰۹۱۲۳۴۵۶۷۸۹', balance: -500000 },
+      { id: 'c2', name: 'رستوران البرز', phone: '۰۹۸۷۶۵۴۳۲۱۰', balance: 0 }
+    ];
+    this.data.customers = custs;
+
+    const todos: Todo[] = [
+      { id: 't1', text: 'بررسی موجودی انبار نایلون', completed: false, createdAt: new Date().toISOString() },
+      { id: 't2', text: 'تماس با تامین‌کننده ظروف', completed: true, createdAt: new Date().toISOString() }
+    ];
+    this.data.todos = todos;
+
+    this.saveLocal();
   }
 }
 

@@ -62,28 +62,31 @@ const Categories: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-xl font-bold text-slate-800 dark:text-white">مدیریت دسته‌بندی‌ها</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">افزودن، ویرایش و حذف گروه‌های کالایی</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+        <div className="space-y-2">
+          <h3 className="text-2xl font-black text-slate-800 dark:text-white">مدیریت دسته‌بندی‌ها</h3>
+          <p className="text-sm font-bold text-slate-500 dark:text-slate-400">سازماندهی محصولات و تعیین حاشیه سود پیش‌فرض</p>
         </div>
         <button 
           onClick={() => {
             setCategoryName('');
             setIsAddModalOpen(true);
           }}
-          className="bg-blue-600 text-white px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold active:scale-95"
+          className="w-full md:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 font-black flex items-center justify-center gap-3 active:scale-95"
         >
           + دسته جدید
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {categories.map(cat => (
-          <div key={cat.id} className="bg-white dark:bg-slate-900 border dark:border-slate-800 p-5 rounded-2xl shadow-sm flex flex-col group hover:border-blue-200 dark:hover:border-blue-900 transition-all">
-            <div className="flex justify-between items-center mb-4">
-              <span className="font-bold text-slate-700 dark:text-slate-200">{cat.name}</span>
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div key={cat.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-8 rounded-[2.5rem] shadow-sm flex flex-col group hover:shadow-xl hover:border-blue-200 dark:hover:border-blue-900/50 transition-all">
+            <div className="flex justify-between items-start mb-6">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-lg">دسته محصول</span>
+                <h4 className="text-xl font-black text-slate-800 dark:text-slate-200 mt-2">{cat.name}</h4>
+              </div>
+              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
                 <button 
                   onClick={() => {
                     setSelectedCategory(cat);
@@ -92,7 +95,7 @@ const Categories: React.FC = () => {
                     setWholesaleMargin(cat.wholesaleMargin ?? '');
                     setIsEditModalOpen(true);
                   }}
-                  className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                  className="p-3 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all active:scale-90"
                   title="ویرایش"
                 >
                   ✏️
@@ -102,30 +105,30 @@ const Categories: React.FC = () => {
                     setSelectedCategory(cat);
                     setIsDeleteModalOpen(true);
                   }}
-                  className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                  className="p-3 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all active:scale-90"
                   title="حذف"
                 >
                   🗑️
                 </button>
               </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl text-center">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">سود خرده</p>
-                <p className="text-sm font-black text-blue-600 dark:text-blue-400">{cat.retailMargin ?? 0}%</p>
+
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50">
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">سود خرده</p>
+                <p className="text-lg font-black text-blue-600 dark:text-blue-400">{cat.retailMargin ?? 0}%</p>
               </div>
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl text-center">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">سود عمده</p>
-                <p className="text-sm font-black text-purple-600 dark:text-purple-400">{cat.wholesaleMargin ?? 0}%</p>
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50">
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">سود عمده</p>
+                <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">{cat.wholesaleMargin ?? 0}%</p>
               </div>
             </div>
 
             <button 
               onClick={() => handleApplyMargins(cat.id)}
-              className="w-full py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-all"
+              className="mt-auto w-full py-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-black text-xs uppercase tracking-widest hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-all active:scale-95"
             >
-              🔄 بروزرسانی قیمت محصولات
+              بروزرسانی قیمت محصولات
             </button>
           </div>
         ))}

@@ -65,60 +65,88 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Top Cards - Responsive Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-5 md:p-6 rounded-3xl text-white shadow-xl shadow-blue-500/10">
-          <p className="text-blue-100 text-[10px] md:text-xs font-bold uppercase tracking-wider">مجموع فروش کل</p>
-          <h3 className="text-xl md:text-2xl font-black mt-1 md:mt-2">{formatCurrency(totalSales)}</h3>
-          <p className="text-[10px] mt-3 md:mt-4 opacity-70">گزارش تجمعی سیستم</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+        <div className="group bg-gradient-to-br from-blue-600 to-blue-800 p-8 rounded-[2.5rem] text-white shadow-xl shadow-blue-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+          <div className="flex justify-between items-start">
+            <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest opacity-80">مجموع فروش کل</p>
+            <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">💰</span>
+          </div>
+          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{formatCurrency(totalSales)}</h3>
+          <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">گزارش تجمعی</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">Live</span>
+          </div>
         </div>
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 md:p-6 rounded-3xl text-white shadow-xl shadow-emerald-500/10">
-          <p className="text-emerald-100 text-[10px] md:text-xs font-bold uppercase tracking-wider">سود تخمینی</p>
-          <h3 className="text-xl md:text-2xl font-black mt-1 md:mt-2">{formatCurrency(totalProfit)}</h3>
-          <p className="text-[10px] mt-3 md:mt-4 opacity-70">بر اساس بهای تمام شده</p>
+
+        <div className="group bg-gradient-to-br from-emerald-500 to-emerald-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-emerald-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+          <div className="flex justify-between items-start">
+            <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest opacity-80">سود تخمینی</p>
+            <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">💎</span>
+          </div>
+          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{formatCurrency(totalProfit)}</h3>
+          <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">سود خالص</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">Net</span>
+          </div>
         </div>
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-5 md:p-6 rounded-3xl text-white shadow-xl shadow-indigo-500/10">
-          <p className="text-indigo-100 text-[10px] md:text-xs font-bold uppercase tracking-wider">فاکتورهای صادر شده</p>
-          <h3 className="text-xl md:text-2xl font-black mt-1 md:mt-2">{invoices.length} عدد</h3>
-          <p className="text-[10px] mt-3 md:mt-4 opacity-70">تاریخچه کامل فروش</p>
+
+        <div className="group bg-gradient-to-br from-indigo-500 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-indigo-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+          <div className="flex justify-between items-start">
+            <p className="text-indigo-100 text-[10px] font-black uppercase tracking-widest opacity-80">فاکتورهای صادر شده</p>
+            <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">🧾</span>
+          </div>
+          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{invoices.length} <span className="text-sm font-black opacity-60 uppercase tracking-widest">عدد</span></h3>
+          <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">تاریخچه کامل</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">Total</span>
+          </div>
         </div>
-        <div className="bg-gradient-to-br from-rose-500 to-rose-700 p-5 md:p-6 rounded-3xl text-white shadow-xl shadow-rose-500/10">
-          <p className="text-rose-100 text-[10px] md:text-xs font-bold uppercase tracking-wider">هشدار موجودی</p>
-          <h3 className="text-xl md:text-2xl font-black mt-1 md:mt-2">{lowStockProducts.length} کالا</h3>
-          <p className="text-[10px] mt-3 md:mt-4 opacity-70">نیاز به شارژ انبار</p>
+
+        <div className="group bg-gradient-to-br from-rose-500 to-rose-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-rose-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+          <div className="flex justify-between items-start">
+            <p className="text-rose-100 text-[10px] font-black uppercase tracking-widest opacity-80">هشدار موجودی</p>
+            <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">🚨</span>
+          </div>
+          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{lowStockProducts.length} <span className="text-sm font-black opacity-60 uppercase tracking-widest">کالا</span></h3>
+          <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">نیاز به شارژ</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">Alert</span>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
         
-        {/* Left Column: Low Stock & Debtors (Now lg:col-span-1 due to lg:grid-cols-2) */}
-        <div className="space-y-6 md:space-y-8">
+        {/* Left Column: Low Stock & Debtors */}
+        <div className="space-y-8 md:space-y-10">
           
           {/* Low Stock Table */}
-          <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden h-fit">
-            <div className="p-4 md:p-5 border-b dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center">
-              <h4 className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                ⚠️ کالاهای زیر حد نصاب موجودی
+          <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] shadow-sm overflow-hidden h-fit transition-all hover:shadow-md">
+            <div className="p-5 md:p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex justify-between items-center">
+              <h4 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-3">
+                <span className="text-xl">⚠️</span>
+                کالاهای زیر حد نصاب موجودی
               </h4>
-              <span className="text-[9px] md:text-[10px] font-bold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-2 py-1 rounded-lg">Critical</span>
+              <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 rounded-xl uppercase tracking-widest">Critical</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-gray-400 dark:text-slate-500 text-[10px] uppercase font-bold border-b dark:border-slate-800">
+                <thead className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-black tracking-widest border-b border-slate-100 dark:border-slate-800">
                   <tr>
-                    <th className="p-3 md:p-4 text-right">نام کالا</th>
-                    <th className="p-3 md:p-4 text-center">موجودی</th>
-                    <th className="p-3 md:p-4 text-center">حداقل</th>
+                    <th className="p-4 md:p-5 text-right">نام کالا</th>
+                    <th className="p-4 md:p-5 text-center">موجودی</th>
+                    <th className="p-4 md:p-5 text-center">حداقل</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                   {lowStockProducts.length > 0 ? lowStockProducts.map(p => (
-                    <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="p-3 md:p-4 text-right font-bold text-slate-700 dark:text-slate-300 text-xs md:text-sm">{p.name}</td>
-                      <td className={`p-3 md:p-4 text-center ${getStockStatusColor(p.quantity, p.lowStockThreshold)}`}>{p.quantity}</td>
-                      <td className="p-3 md:p-4 text-center text-gray-400 dark:text-slate-600 font-mono text-xs">{p.lowStockThreshold}</td>
+                    <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
+                      <td className="p-4 md:p-5 text-right font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 transition-colors">{p.name}</td>
+                      <td className={`p-4 md:p-5 text-center font-black ${getStockStatusColor(p.quantity, p.lowStockThreshold)}`}>{p.quantity}</td>
+                      <td className="p-4 md:p-5 text-center text-slate-400 dark:text-slate-600 font-mono font-bold">{p.lowStockThreshold}</td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={3} className="p-8 md:p-12 text-center text-gray-400 dark:text-slate-600 italic text-xs">تمامی کالاها موجودی کافی دارند</td></tr>
+                    <tr><td colSpan={3} className="p-12 text-center text-slate-400 dark:text-slate-600 italic font-medium">تمامی کالاها موجودی کافی دارند ✨</td></tr>
                   )}
                 </tbody>
               </table>
@@ -126,29 +154,30 @@ const Dashboard: React.FC = () => {
           </section>
 
           {/* Debtors Table */}
-          <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden h-fit">
-            <div className="p-4 md:p-5 border-b dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center">
-              <h4 className="text-xs md:text-sm font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                💸 لیست بدهکاران برتر
+          <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2rem] shadow-sm overflow-hidden h-fit transition-all hover:shadow-md">
+            <div className="p-5 md:p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex justify-between items-center">
+              <h4 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-3">
+                <span className="text-xl">💸</span>
+                لیست بدهکاران برتر
               </h4>
-              <span className="text-[9px] md:text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg">Receivables</span>
+              <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-xl uppercase tracking-widest">Receivables</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-gray-400 dark:text-slate-500 text-[10px] uppercase font-bold border-b dark:border-slate-800">
+                <thead className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-black tracking-widest border-b border-slate-100 dark:border-slate-800">
                   <tr>
-                    <th className="p-3 md:p-4 text-right">نام مشتری</th>
-                    <th className="p-3 md:p-4 text-center">مانده</th>
+                    <th className="p-4 md:p-5 text-right">نام مشتری</th>
+                    <th className="p-4 md:p-5 text-center">مانده بدهی</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                   {topDebtors.filter(c => c.balance < 0).length > 0 ? topDebtors.filter(c => c.balance < 0).map(c => (
-                    <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors group">
-                      <td className="p-3 md:p-4 text-right font-bold text-slate-700 dark:text-slate-300 text-xs md:text-sm group-hover:text-blue-600 transition-colors">{c.name}</td>
-                      <td className="p-3 md:p-4 text-center text-rose-600 dark:text-rose-400 font-black font-mono text-xs md:text-sm">{formatCurrency(Math.abs(c.balance))}</td>
+                    <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
+                      <td className="p-4 md:p-5 text-right font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 transition-colors">{c.name}</td>
+                      <td className="p-4 md:p-5 text-center text-rose-600 dark:text-rose-400 font-black font-mono">{formatCurrency(Math.abs(c.balance))}</td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={2} className="p-8 md:p-12 text-center text-gray-400 dark:text-slate-600 italic text-xs">بدهکاری در سیستم ثبت نشده است</td></tr>
+                    <tr><td colSpan={2} className="p-12 text-center text-slate-400 dark:text-slate-600 italic font-medium">بدهکاری در سیستم ثبت نشده است ✅</td></tr>
                   )}
                 </tbody>
               </table>
@@ -156,71 +185,71 @@ const Dashboard: React.FC = () => {
           </section>
         </div>
 
-        {/* Right Column: To-Do List (Now Equal Width lg:col-span-1) */}
-        <section className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-3xl shadow-sm flex flex-col overflow-hidden h-fit ring-4 ring-blue-50/30 dark:ring-transparent">
-          <div className="p-5 md:p-6 border-b dark:border-slate-800 bg-blue-600 dark:bg-slate-800/50 flex justify-between items-center text-white">
-            <h4 className="text-sm md:text-base font-black flex items-center gap-3">
-              <span className="text-xl">📝</span>
+        {/* Right Column: To-Do List */}
+        <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-sm flex flex-col overflow-hidden h-fit ring-8 ring-blue-50/50 dark:ring-transparent transition-all hover:shadow-lg">
+          <div className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 bg-blue-600 dark:bg-slate-800/50 flex justify-between items-center text-white">
+            <h4 className="text-lg md:text-xl font-black flex items-center gap-4">
+              <span className="text-2xl">📝</span>
               لیست کارهای امروز
             </h4>
-            <span className="text-[10px] font-bold bg-white/20 px-2 py-1 rounded-lg">High Priority</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1.5 rounded-xl uppercase tracking-widest">High Priority</span>
           </div>
           
-          <div className="p-5 md:p-8 space-y-6 md:space-y-8">
-            <form onSubmit={handleAddTodo} className="relative">
+          <div className="p-6 md:p-10 space-y-8 md:space-y-10">
+            <form onSubmit={handleAddTodo} className="relative group">
               <input 
                 type="text" 
                 placeholder="چه کاری باید انجام شود؟" 
-                className="w-full pr-5 pl-14 py-4 md:py-5 bg-gray-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none dark:text-white transition-all text-sm md:text-base font-medium shadow-inner"
+                className="w-full pr-6 pl-16 py-5 md:py-6 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-3xl outline-none dark:text-white transition-all text-base md:text-lg font-bold shadow-inner"
                 value={newTodo}
                 onChange={(e) => setNewTodo(e.target.value)}
               />
               <button 
                 type="submit" 
-                className="absolute left-3 top-2 bottom-2 px-6 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 font-bold active:scale-95"
+                className="absolute left-3 top-3 bottom-3 px-6 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 font-black active:scale-95 flex items-center justify-center"
               >
-                ثبت کار
+                ثبت
               </button>
             </form>
 
-            <div className="space-y-4 max-h-[450px] md:max-h-[600px] overflow-auto pr-1 custom-scrollbar">
+            <div className="space-y-5 max-h-[500px] md:max-h-[700px] overflow-auto pr-2 custom-scrollbar">
               {todos.length > 0 ? [...todos].reverse().map(todo => (
                 <div 
                   key={todo.id} 
-                  className={`flex items-center justify-between p-4 md:p-5 rounded-2xl border-2 transition-all group ${todo.completed ? 'bg-gray-50/50 dark:bg-slate-800/30 border-transparent opacity-60' : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 shadow-sm'}`}
+                  className={`flex items-center justify-between p-5 md:p-6 rounded-3xl border-2 transition-all group ${todo.completed ? 'bg-slate-50/50 dark:bg-slate-800/30 border-transparent opacity-60' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 shadow-sm'}`}
                 >
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="flex items-center gap-5 flex-1 min-w-0">
                     <button 
                       onClick={() => handleToggleTodo(todo.id)}
-                      className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all flex-shrink-0 ${todo.completed ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'border-gray-200 dark:border-slate-700 hover:border-blue-500'}`}
+                      className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all flex-shrink-0 ${todo.completed ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'border-slate-200 dark:border-slate-700 hover:border-blue-500'}`}
                     >
-                      {todo.completed && '✓'}
+                      {todo.completed && <span className="text-lg font-black">✓</span>}
                     </button>
-                    <span className={`text-sm md:text-base font-bold truncate dark:text-slate-300 ${todo.completed ? 'line-through text-gray-400' : 'text-slate-700'}`}>
+                    <span className={`text-base md:text-lg font-bold truncate dark:text-slate-300 ${todo.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                       {todo.text}
                     </span>
                   </div>
                   <button 
                     onClick={() => handleDeleteTodo(todo.id)}
-                    className="p-2 text-gray-300 hover:text-rose-500 transition-all md:opacity-0 md:group-hover:opacity-100 bg-gray-50 dark:bg-slate-800 rounded-lg"
+                    className="p-3 text-slate-300 hover:text-rose-500 transition-all md:opacity-0 md:group-hover:opacity-100 bg-slate-50 dark:bg-slate-800 rounded-xl"
                   >
                     🗑️
                   </button>
                 </div>
               )) : (
-                <div className="text-center py-16 opacity-30">
-                  <div className="text-6xl mb-4">🏖️</div>
-                  <p className="text-sm font-black text-slate-500 uppercase tracking-widest">همه کارها انجام شده!</p>
+                <div className="text-center py-20 opacity-40">
+                  <div className="text-7xl mb-6">🏖️</div>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">همه کارها انجام شده!</p>
                 </div>
               )}
             </div>
           </div>
           
           {todos.length > 0 && (
-            <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-800 flex justify-center items-center gap-4">
-              <div className="flex -space-x-2 rtl:space-x-reverse">
+            <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-center items-center gap-6">
+              <div className="flex -space-x-3 rtl:space-x-reverse">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="w-6 h-6 rounded-full bg-blue-400 border-2 border-white dark:border-slate-900"></div>
+                  <div key={i} className={`w-8 h-8 rounded-full border-4 border-white dark:border-slate-900 shadow-sm ${i === 0 ? 'bg-blue-400' : i === 1 ? 'bg-indigo-400' : 'bg-emerald-400'}`}></div>
                 ))}
               </div>
               <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest">

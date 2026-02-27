@@ -340,124 +340,106 @@ const Invoices: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl border dark:border-slate-800 shadow-sm">
-        <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-          🧾 فاکتورهای فروش
-        </h3>
-        <button onClick={handleOpenAddMode} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg hover:bg-blue-700 active:scale-95 transition-all text-sm flex items-center gap-2">
-          ➕ صدور فاکتور جدید
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="relative w-full md:w-96 group">
+          <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 group-focus-within:text-blue-500 transition-colors">🔍</span>
+          <input 
+            type="text" 
+            placeholder="جستجو فاکتور یا مشتری..." 
+            className="w-full pr-12 pl-4 py-4 border-2 border-slate-100 dark:border-slate-800 rounded-2xl outline-none shadow-sm bg-white dark:bg-slate-900 dark:text-white focus:border-blue-500 dark:focus:border-blue-500 transition-all font-bold"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <button onClick={handleOpenAddMode} className="w-full md:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 font-black flex items-center justify-center gap-3 active:scale-95">
+          + ثبت فاکتور جدید
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border dark:border-slate-800 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">جستجو</label>
-            <div className="relative">
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
-              <input 
-                type="text" 
-                placeholder="شماره فاکتور یا نام مشتری..." 
-                className="w-full p-2.5 pr-10 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white outline-none text-sm focus:ring-2 focus:ring-blue-500/20 transition-all"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">نوع فاکتور</label>
-            <select 
-              className="w-full p-2.5 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white outline-none text-sm"
-              value={typeFilter}
-              onChange={e => setTypeFilter(e.target.value as any)}
-            >
-              <option value="ALL">همه موارد</option>
+      <div className="bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-inner space-y-6">
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">نوع فاکتور:</span>
+            <select className="text-sm font-bold p-3 px-5 border-2 border-transparent focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)}>
+              <option value="ALL">همه انواع</option>
               <option value={InvoiceType.RETAIL}>خرده‌فروشی</option>
               <option value={InvoiceType.WHOLESALE}>عمده‌فروشی</option>
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">مشتری</label>
-            <select 
-              className="w-full p-2.5 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white outline-none text-sm"
-              value={customerFilter}
-              onChange={e => setCustomerFilter(e.target.value)}
-            >
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">مشتری:</span>
+            <select className="text-sm font-bold p-3 px-5 border-2 border-transparent focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all max-w-[200px]" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}>
               <option value="ALL">همه مشتریان</option>
               {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="flex items-end">
-            <button 
-              onClick={clearFilters}
-              className="w-full p-2.5 text-slate-500 hover:text-red-500 font-bold text-xs transition-colors flex items-center justify-center gap-1"
-            >
-              🔄 پاکسازی فیلترها
-            </button>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">از تاریخ:</span>
+            <JalaliDatePicker value={startDate} onChange={setStartDate} placeholder="شروع..." />
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t dark:border-slate-800">
-          <JalaliDatePicker label="از تاریخ" value={startDate} onChange={setStartDate} />
-          <JalaliDatePicker label="تا تاریخ" value={endDate} onChange={setEndDate} />
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">تا تاریخ:</span>
+            <JalaliDatePicker value={endDate} onChange={setEndDate} placeholder="پایان..." />
+          </div>
+          <button onClick={clearFilters} className="mr-auto text-xs font-black text-rose-500 hover:text-rose-600 transition-colors uppercase tracking-widest">پاکسازی فیلترها</button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-right text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300">
+      <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-sm bg-white dark:bg-slate-900">
+        <table className="w-full text-right min-w-[900px]">
+          <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-black uppercase text-[10px] tracking-widest">
+            <tr>
+              <th className="p-6">شماره فاکتور</th>
+              <th className="p-6">تاریخ</th>
+              <th className="p-6">مشتری</th>
+              <th className="p-6 text-center">نوع</th>
+              <th className="p-6 text-center">مبلغ کل</th>
+              <th className="p-6 text-center">وضعیت پرداخت</th>
+              <th className="p-6 text-center">عملیات</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+            {filteredInvoices.length === 0 ? (
               <tr>
-                <th className="p-4 font-bold">شماره فاکتور</th>
-                <th className="p-4 font-bold">تاریخ</th>
-                <th className="p-4 font-bold">مشتری</th>
-                <th className="p-4 font-bold">نوع</th>
-                <th className="p-4 font-bold">مبلغ کل</th>
-                <th className="p-4 font-bold">وضعیت</th>
-                <th className="p-4 font-bold text-center">عملیات</th>
+                <td colSpan={7} className="p-12 text-center text-slate-400 dark:text-slate-500 font-bold">
+                  هیچ فاکتوری یافت نشد.
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredInvoices.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500 dark:text-slate-400">
-                    هیچ فاکتوری یافت نشد.
+            ) : (
+              filteredInvoices.map(inv => (
+                <tr key={inv.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group">
+                  <td className="p-6 font-black text-slate-800 dark:text-slate-200">#{inv.invoiceNumber}</td>
+                  <td className="p-6 text-slate-500 dark:text-slate-400 font-bold text-sm">{formatJalali(inv.date)}</td>
+                  <td className="p-6">
+                    <div className="font-bold text-slate-700 dark:text-slate-300">{inv.customerName || 'مشتری گذری'}</div>
+                  </td>
+                  <td className="p-6 text-center">
+                    <span className={`text-[10px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest ${inv.type === InvoiceType.RETAIL ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'}`}>
+                      {inv.type === InvoiceType.RETAIL ? 'خرده' : 'عمده'}
+                    </span>
+                  </td>
+                  <td className="p-6 text-center font-black text-slate-800 dark:text-slate-200 font-mono">{formatCurrency(inv.totalAmount)}</td>
+                  <td className="p-6 text-center">
+                    {inv.remainingAmount <= 0 ? (
+                      <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5 rounded-xl uppercase tracking-widest">تسویه شده</span>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-3 py-1.5 rounded-xl uppercase tracking-widest">مانده بدهی</span>
+                        <span className="text-[10px] font-mono font-bold text-rose-500">{formatCurrency(inv.remainingAmount)}</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-6 text-center">
+                    <div className="flex justify-center gap-3">
+                      <button onClick={() => setViewingInvoice(inv)} className="p-2.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all active:scale-90" title="مشاهده">👁️</button>
+                      <button onClick={() => window.print()} className="p-2.5 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all active:scale-90" title="چاپ">🖨️</button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                filteredInvoices.map(inv => (
-                  <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="p-4 font-mono font-bold text-slate-700 dark:text-slate-200">{inv.invoiceNumber}</td>
-                    <td className="p-4 text-slate-600 dark:text-slate-300 font-mono text-xs">{formatJalali(inv.date)}</td>
-                    <td className="p-4 font-bold text-slate-800 dark:text-slate-200">{inv.customerName || 'مشتری گذری'}</td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 rounded-md text-xs font-bold ${inv.type === InvoiceType.RETAIL ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
-                        {inv.type === InvoiceType.RETAIL ? 'خرده‌فروشی' : 'عمده‌فروشی'}
-                      </span>
-                    </td>
-                    <td className="p-4 font-mono font-bold text-slate-800 dark:text-slate-200">{formatCurrency(inv.totalAmount)}</td>
-                    <td className="p-4">
-                      {inv.remainingAmount === 0 ? (
-                        <span className="text-green-600 dark:text-green-400 font-bold text-xs bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-md">تسویه شده</span>
-                      ) : (
-                        <span className="text-red-500 dark:text-red-400 font-bold text-xs bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md">بدهکار: {formatCurrency(inv.remainingAmount)}</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center">
-                      <button 
-                        onClick={() => setViewingInvoice(inv)}
-                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-bold text-xs bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        مشاهده / چاپ
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {viewingInvoice && (

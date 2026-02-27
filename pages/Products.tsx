@@ -227,42 +227,42 @@ const Products: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="relative w-full md:w-80">
-          <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400">🔍</span>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="relative w-full md:w-96 group">
+          <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 group-focus-within:text-blue-500 transition-colors">🔍</span>
           <input 
             type="text" 
-            placeholder="جستجو کالا یا کد..." 
-            className="w-full pr-10 pl-4 py-3 border dark:border-slate-700 rounded-2xl outline-none shadow-sm bg-white dark:bg-slate-800 dark:text-white"
+            placeholder="جستجو کالا، کد یا دسته‌بندی..." 
+            className="w-full pr-12 pl-4 py-4 border-2 border-slate-100 dark:border-slate-800 rounded-2xl outline-none shadow-sm bg-white dark:bg-slate-900 dark:text-white focus:border-blue-500 dark:focus:border-blue-500 transition-all font-bold"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          <button onClick={exportExcel} className="flex-1 md:flex-none bg-emerald-600 text-white px-4 py-3 rounded-2xl hover:bg-emerald-700 transition-all font-bold flex items-center justify-center gap-2">
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          <button onClick={exportExcel} className="flex-1 md:flex-none bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50 px-6 py-4 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all font-black flex items-center justify-center gap-3 active:scale-95">
             📊 خروجی اکسل
           </button>
-          <button onClick={() => setIsExcelModalOpen(true)} className="flex-1 md:flex-none bg-green-600 text-white px-4 py-3 rounded-2xl hover:bg-green-700 transition-all font-bold flex items-center justify-center gap-2">
+          <button onClick={() => setIsExcelModalOpen(true)} className="flex-1 md:flex-none bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/50 px-6 py-4 rounded-2xl hover:bg-amber-600 hover:text-white transition-all font-black flex items-center justify-center gap-3 active:scale-95">
             📥 ورود اکسل
           </button>
-          <button onClick={openAddModal} className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-3 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold flex items-center justify-center gap-2">
+          <button onClick={openAddModal} className="flex-1 md:flex-none bg-blue-600 text-white px-8 py-4 rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 font-black flex items-center justify-center gap-3 active:scale-95">
             + محصول جدید
           </button>
         </div>
       </div>
 
-      <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-2xl border dark:border-slate-700 shadow-sm flex flex-wrap items-center gap-6">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-400">فیلتر دسته:</span>
-          <select className="text-sm p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+      <div className="bg-slate-50/50 dark:bg-slate-800/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-inner flex flex-wrap items-center gap-8">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">فیلتر دسته:</span>
+          <select className="text-sm font-bold p-3 px-5 border-2 border-transparent focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
             <option value="ALL">همه دسته‌ها</option>
             {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
           </select>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-400">مرتب‌سازی:</span>
-          <select className="text-sm p-2 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">مرتب‌سازی:</span>
+          <select className="text-sm font-bold p-3 px-5 border-2 border-transparent focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="name_asc">نام (الف تا ی)</option>
             <option value="name_desc">نام (ی تا الف)</option>
             <option value="category_asc">دسته (الف تا ی)</option>
@@ -270,49 +270,52 @@ const Products: React.FC = () => {
             <option value="qty_asc">موجودی (کمترین)</option>
           </select>
         </div>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" className="w-4 h-4 rounded text-blue-600" checked={lowStockOnly} onChange={(e) => setLowStockOnly(e.target.checked)} />
-          <span className="text-sm font-bold text-slate-600 dark:text-slate-400">کم‌موجودی</span>
+        <label className="flex items-center gap-3 cursor-pointer group">
+          <div className={`w-10 h-6 rounded-full transition-all relative ${lowStockOnly ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
+            <input type="checkbox" className="hidden" checked={lowStockOnly} onChange={(e) => setLowStockOnly(e.target.checked)} />
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${lowStockOnly ? 'right-5' : 'right-1'}`}></div>
+          </div>
+          <span className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">فقط کم‌موجودی</span>
         </label>
       </div>
 
-      <div className="overflow-x-auto border dark:border-slate-700 rounded-2xl shadow-sm bg-white dark:bg-slate-900">
-        <table className="w-full text-right min-w-[900px]">
-          <thead className="bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-700 text-gray-500 dark:text-slate-400 font-bold uppercase text-xs">
+      <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-sm bg-white dark:bg-slate-900">
+        <table className="w-full text-right min-w-[1000px]">
+          <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-black uppercase text-[10px] tracking-widest">
             <tr>
-              <th className="p-4 w-12 text-center">
-                <input type="checkbox" checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0} onChange={toggleSelectAll} className="w-4 h-4" />
+              <th className="p-6 w-16 text-center">
+                <input type="checkbox" checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0} onChange={toggleSelectAll} className="w-5 h-5 rounded-lg border-2 border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500" />
               </th>
-              <th className="p-4">نام محصول</th>
-              <th className="p-4">دسته و کد</th>
-              <th className="p-4 text-center">موجودی</th>
-              <th className="p-4 text-center">قیمت خرید</th>
-              <th className="p-4 text-center">خرده‌فروشی</th>
-              <th className="p-4 text-center">عمده‌فروشی</th>
-              <th className="p-4 text-center">عملیات</th>
+              <th className="p-6">نام محصول</th>
+              <th className="p-6">دسته و کد</th>
+              <th className="p-6 text-center">موجودی</th>
+              <th className="p-6 text-center">قیمت خرید</th>
+              <th className="p-6 text-center">خرده‌فروشی</th>
+              <th className="p-6 text-center">عمده‌فروشی</th>
+              <th className="p-6 text-center">عملیات</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
             {filteredProducts.map(p => (
-              <tr key={p.id} className={`hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors ${selectedIds.includes(p.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
-                <td className="p-4 text-center">
-                  <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleSelectProduct(p.id)} className="w-4 h-4" />
+              <tr key={p.id} className={`hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group ${selectedIds.includes(p.id) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
+                <td className="p-6 text-center">
+                  <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleSelectProduct(p.id)} className="w-5 h-5 rounded-lg border-2 border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500" />
                 </td>
-                <td className="p-4">
-                  <div className="font-bold text-slate-700 dark:text-slate-200">{p.name}</div>
+                <td className="p-6">
+                  <div className="font-black text-slate-800 dark:text-slate-200 text-base group-hover:text-blue-600 transition-colors">{p.name}</div>
                 </td>
-                <td className="p-4">
-                  <span className="text-[10px] text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded w-max">{p.category}</span>
-                  <div className="text-[10px] text-gray-400 mt-1">کد: {p.internalCode || '---'}</div>
+                <td className="p-6">
+                  <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-xl uppercase tracking-widest">{p.category}</span>
+                  <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-2">کد: {p.internalCode || '---'}</div>
                 </td>
-                <td className={`p-4 text-center ${getStockStatusColor(p.quantity, p.lowStockThreshold)} font-bold`}>{p.quantity}</td>
-                <td className="p-4 text-center">
+                <td className={`p-6 text-center font-black text-base ${getStockStatusColor(p.quantity, p.lowStockThreshold)}`}>{p.quantity}</td>
+                <td className="p-6 text-center">
                   {quickEditingId === p.id ? (
-                    <div className="flex items-center gap-1 justify-center">
+                    <div className="flex items-center gap-2 justify-center animate-in zoom-in-95 duration-200">
                       <input 
                         autoFocus
                         type="number" 
-                        className="w-24 p-1 border dark:border-slate-700 rounded bg-white dark:bg-slate-800 dark:text-white text-xs text-center font-mono"
+                        className="w-32 p-2 border-2 border-blue-500 rounded-xl bg-white dark:bg-slate-800 dark:text-white text-sm text-center font-black shadow-lg"
                         value={quickCost}
                         onChange={e => setQuickCost(Number(e.target.value))}
                         onKeyDown={e => {
@@ -320,27 +323,27 @@ const Products: React.FC = () => {
                           if (e.key === 'Escape') setQuickEditingId(null);
                         }}
                       />
-                      <button onClick={() => handleQuickCostUpdate(p.id, quickCost)} className="text-green-500 text-xs">✅</button>
+                      <button onClick={() => handleQuickCostUpdate(p.id, quickCost)} className="bg-emerald-500 text-white p-2 rounded-xl shadow-lg shadow-emerald-500/20">✓</button>
                     </div>
                   ) : (
                     <div 
-                      className="text-gray-500 font-mono text-sm cursor-pointer hover:text-blue-500 flex items-center justify-center gap-1 group/cost"
+                      className="text-slate-500 dark:text-slate-400 font-bold text-sm cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center gap-2 group/cost transition-all"
                       onClick={() => {
                         setQuickEditingId(p.id);
                         setQuickCost(p.avgCost);
                       }}
                     >
                       {formatCurrency(p.avgCost)}
-                      <span className="opacity-0 group-hover/cost:opacity-100 text-[10px]">✏️</span>
+                      <span className="opacity-0 group-hover/cost:opacity-100 text-xs transition-opacity">✏️</span>
                     </div>
                   )}
                 </td>
-                <td className="p-4 text-center text-blue-600 font-bold font-mono">{formatCurrency(p.retailPrice)}</td>
-                <td className="p-4 text-center text-indigo-600 font-bold font-mono">{formatCurrency(p.wholesalePrice)}</td>
-                <td className="p-4 text-center">
-                  <div className="flex justify-center gap-2">
-                    <button onClick={() => openEditModal(p)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg">✏️</button>
-                    <button onClick={() => handleDeleteProduct(p.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">🗑️</button>
+                <td className="p-6 text-center text-blue-600 dark:text-blue-400 font-black text-base font-mono">{formatCurrency(p.retailPrice)}</td>
+                <td className="p-6 text-center text-indigo-600 dark:text-indigo-400 font-black text-base font-mono">{formatCurrency(p.wholesalePrice)}</td>
+                <td className="p-6 text-center">
+                  <div className="flex justify-center gap-3">
+                    <button onClick={() => openEditModal(p)} className="p-2.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all active:scale-90" title="ویرایش">✏️</button>
+                    <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all active:scale-90" title="حذف">🗑️</button>
                   </div>
                 </td>
               </tr>
