@@ -18,6 +18,11 @@ const Products: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [sortBy, setSortBy] = useState('name_asc');
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [stockStatus, setStockStatus] = useState<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'>('ALL');
+  const [minPrice, setMinPrice] = useState<string>('');
+  const [maxPrice, setMaxPrice] = useState<string>('');
+  const [minQty, setMinQty] = useState<string>('');
+  const [maxQty, setMaxQty] = useState<string>('');
   const [quickEditingId, setQuickEditingId] = useState<string | null>(null);
   const [quickCost, setQuickCost] = useState<number>(0);
 
@@ -43,13 +48,35 @@ const Products: React.FC = () => {
   const filteredProducts = useMemo(() => {
     let result = products.filter(p => {
       const matchSearch = 
-        p.name.includes(searchTerm) || 
-        p.id.includes(searchTerm) || 
-        (p.internalCode && p.internalCode.includes(searchTerm));
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (p.internalCode && p.internalCode.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
-      const matchLowStock = !lowStockOnly || p.quantity <= p.lowStockThreshold;
-      return matchSearch && matchCategory && matchLowStock;
+      
+      // Stock Status matching
+      let matchStock = true;
+      if (stockStatus === 'IN_STOCK') {
+        matchStock = p.quantity > 0;
+      } else if (stockStatus === 'LOW_STOCK') {
+        matchStock = p.quantity <= p.lowStockThreshold;
+      } else if (stockStatus === 'OUT_OF_STOCK') {
+        matchStock = p.quantity === 0;
+      } else if (lowStockOnly) {
+        matchStock = p.quantity <= p.lowStockThreshold;
+      }
+
+      // Min/Max Quantities
+      const numMinQty = minQty !== '' ? Number(minQty) : -Infinity;
+      const numMaxQty = maxQty !== '' ? Number(maxQty) : Infinity;
+      const matchQty = p.quantity >= numMinQty && p.quantity <= numMaxQty;
+
+      // Min/Max Prices (searched in retailPrice)
+      const numMinPrice = minPrice !== '' ? Number(minPrice) : -Infinity;
+      const numMaxPrice = maxPrice !== '' ? Number(maxPrice) : Infinity;
+      const matchPrice = p.retailPrice >= numMinPrice && p.retailPrice <= numMaxPrice;
+
+      return matchSearch && matchCategory && matchStock && matchQty && matchPrice;
     });
 
     result.sort((a, b) => {
@@ -64,7 +91,7 @@ const Products: React.FC = () => {
     });
 
     return result;
-  }, [products, searchTerm, categoryFilter, lowStockOnly, sortBy]);
+  }, [products, searchTerm, categoryFilter, lowStockOnly, stockStatus, minQty, maxQty, minPrice, maxPrice, sortBy]);
 
   const toggleSelectAll = () => {
     if (selectedIds.length === filteredProducts.length && filteredProducts.length > 0) {
@@ -252,31 +279,117 @@ const Products: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-slate-50/50 dark:bg-slate-800/30 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-inner flex flex-wrap items-center gap-8">
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">فیلتر دسته:</span>
-          <select className="text-sm font-bold p-3 px-5 border-2 border-transparent focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="ALL">همه دسته‌ها</option>
-            {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">مرتب‌سازی:</span>
-          <select className="text-sm font-bold p-3 px-5 border-2 border-transparent focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="name_asc">نام (الف تا ی)</option>
-            <option value="name_desc">نام (ی تا الف)</option>
-            <option value="category_asc">دسته (الف تا ی)</option>
-            <option value="qty_desc">موجودی (بیشترین)</option>
-            <option value="qty_asc">موجودی (کمترین)</option>
-          </select>
-        </div>
-        <label className="flex items-center gap-3 cursor-pointer group">
-          <div className={`w-10 h-6 rounded-full transition-all relative ${lowStockOnly ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
-            <input type="checkbox" className="hidden" checked={lowStockOnly} onChange={(e) => setLowStockOnly(e.target.checked)} />
-            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${lowStockOnly ? 'right-5' : 'right-1'}`}></div>
+      <div className="bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-inner space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Category Filter */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">فیلتر دسته بندی:</span>
+            <select 
+              className="text-sm font-bold p-3 px-4 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" 
+              value={categoryFilter} 
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="ALL">همه دسته‌ها</option>
+              {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+            </select>
           </div>
-          <span className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">فقط کم‌موجودی</span>
-        </label>
+
+          {/* Stock Status preset */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">وضعیت موجودی انبار:</span>
+            <select 
+              className="text-sm font-bold p-3 px-4 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" 
+              value={stockStatus} 
+              onChange={(e) => setStockStatus(e.target.value as any)}
+            >
+              <option value="ALL">همه کالاها</option>
+              <option value="IN_STOCK">دارای موجودی (بیشتر از ۰)</option>
+              <option value="LOW_STOCK">کم‌موجودی (زیر آستانه هشدار)</option>
+              <option value="OUT_OF_STOCK">ناموجود (موجودی صفر)</option>
+            </select>
+          </div>
+
+          {/* Sort selection */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">مرتب‌سازی براساس:</span>
+            <select 
+              className="text-sm font-bold p-3 px-4 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" 
+              value={sortBy} 
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="name_asc">نام (الف تا ی)</option>
+              <option value="name_desc">نام (ی تا الف)</option>
+              <option value="category_asc">دسته‌بندی (الف تا ی)</option>
+              <option value="qty_desc">موجودی انبار (بیشترین)</option>
+              <option value="qty_asc">موجودی انبار (کمترین)</option>
+            </select>
+          </div>
+
+          {/* Reset Filters and quick states */}
+          <div className="flex flex-col justify-end gap-2">
+            <span className="hidden lg:block text-[10px] font-black opacity-0 uppercase tracking-widest">عملیات:</span>
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setCategoryFilter('ALL');
+                setSortBy('name_asc');
+                setLowStockOnly(false);
+                setStockStatus('ALL');
+                setMinPrice('');
+                setMaxPrice('');
+                setMinQty('');
+                setMaxQty('');
+              }}
+              className="w-full text-center px-5 py-3 border-2 border-slate-200 dark:border-slate-700 hover:border-red-500 dark:hover:border-red-500 hover:text-red-600 dark:hover:text-red-400 rounded-xl text-xs font-black transition-all text-slate-500 dark:text-slate-400 cursor-pointer flex items-center justify-center gap-2"
+            >
+              🧹 پاک کردن تمام فیلترها
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+          {/* Price Range */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">فیلتر بازه قیمت خرده‌فروشی (تومان):</span>
+            <div className="grid grid-cols-2 gap-3">
+              <input 
+                type="number"
+                placeholder="حداقل قیمت..."
+                className="p-3 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none text-sm font-bold shadow-sm transition-all"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+              />
+              <input 
+                type="number"
+                placeholder="حداکثر قیمت..."
+                className="p-3 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none text-sm font-bold shadow-sm transition-all"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Quantity Range */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">فیلتر بازه تعداد موجودی:</span>
+            <div className="grid grid-cols-2 gap-3">
+              <input 
+                type="number"
+                placeholder="حداقل موجودی..."
+                className="p-3 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none text-sm font-bold shadow-sm transition-all"
+                value={minQty}
+                onChange={(e) => setMinQty(e.target.value)}
+              />
+              <input 
+                type="number"
+                placeholder="حداکثر موجودی..."
+                className="p-3 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none text-sm font-bold shadow-sm transition-all"
+                value={maxQty}
+                onChange={(e) => setMaxQty(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="overflow-x-auto border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-sm bg-white dark:bg-slate-900">

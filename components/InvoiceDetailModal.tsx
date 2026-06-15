@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Invoice, InvoiceType } from '../types';
-import { formatCurrency, formatJalali, exportToPDF } from '../utils';
+import { formatCurrency, formatJalali, exportToPDF, printInvoice } from '../utils';
 
 interface InvoiceDetailModalProps {
   invoice: Invoice | null;
@@ -11,6 +11,8 @@ interface InvoiceDetailModalProps {
 }
 
 const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice, onClose, onDelete, onEdit }) => {
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
   if (!invoice) return null;
 
   return (
@@ -109,11 +111,7 @@ const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice, onClos
           <div className="flex gap-2">
             {onDelete && (
               <button 
-                onClick={() => {
-                  if (window.confirm('آیا از حذف این فاکتور مطمئن هستید؟ این عمل باعث بازگشت موجودی به انبار و اصلاح حساب مشتری می‌شود.')) {
-                    onDelete(invoice.id);
-                  }
-                }}
+                onClick={() => setIsConfirmingDelete(true)}
                 className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-2 rounded-xl font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm"
               >
                 🗑️ حذف فاکتور
@@ -128,12 +126,18 @@ const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice, onClos
               </button>
             )}
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2">
             <button 
-              onClick={() => exportToPDF(`invoice-${invoice.id}`, `invoice-${invoice.invoiceNumber}`)}
+              onClick={() => printInvoice(invoice)}
+              className="bg-emerald-600 text-white px-5 py-2 rounded-xl font-bold hover:bg-emerald-700 transition-colors flex items-center gap-2 text-sm md:text-base cursor-pointer"
+            >
+              ⚡🖨️ پرینت مستقیم فیش
+            </button>
+            <button 
+              onClick={() => exportToPDF(invoice, `فاکتور_${invoice.invoiceNumber}`)}
               className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm md:text-base"
             >
-              🖨️ چاپ فاکتور
+              📥 دریافت PDF
             </button>
             <button 
               onClick={onClose}
@@ -144,6 +148,48 @@ const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice, onClos
           </div>
         </div>
       </div>
+
+      {/* Custom Delete Confirmation Dialog */}
+      {isConfirmingDelete && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl p-6 border dark:border-slate-800 text-center space-y-5 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-950/30 text-red-500 rounded-full flex items-center justify-center text-3xl mx-auto shadow-inner">
+              ⚠️
+            </div>
+            
+            <div className="space-y-2">
+              <h4 className="font-black text-lg text-slate-800 dark:text-slate-100">درخواست حذف فاکتور</h4>
+              <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
+                آیا از حذف فاکتور شماره <span className="text-blue-600 dark:text-blue-400 font-mono font-black">{invoice.invoiceNumber}</span> مطمئن هستید؟
+              </p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed font-semibold">
+                این عمل غیرقابل بازگشت است و با انجام آن، موجودی اقلام این فاکتور مجدداً به انبار بازگشت داده شده و مانده بدهکاری خریدار محترم (<span className="font-extrabold text-slate-700 dark:text-slate-300">{invoice.customerName || 'مشتری گذری'}</span>) با توجه به مبالغ دریافتی فاکتور کسر یا بستانکار به حالت تعادل بازخواهد گشت.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDelete) {
+                    onDelete(invoice.id);
+                  }
+                }}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-black rounded-xl shadow-lg shadow-red-600/20 active:scale-[0.98] transition-all text-sm"
+              >
+                بله، فاکتور حذف شود
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDelete(false)}
+                className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black rounded-xl active:scale-[0.98] transition-all text-sm"
+              >
+                انصراف
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

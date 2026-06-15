@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { db } from '../db';
-import { formatCurrency, formatJalali } from '../utils';
+import { formatCurrency, formatJalali, exportReportsToExcel } from '../utils';
 import { Invoice, InvoiceItem, InvoiceType, PaymentMethod } from '../types';
 import JalaliDatePicker from '../components/JalaliDatePicker';
 import InvoiceDetailModal from '../components/InvoiceDetailModal';
@@ -368,16 +368,28 @@ const Reports: React.FC = () => {
             <p className="text-sm font-bold text-slate-500 dark:text-slate-400">تحلیل دقیق عملکرد مالی در بازه‌های زمانی مختلف</p>
           </div>
           
-          <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
-            {(['today', 'month', 'year', 'custom'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setDateRange(mode)}
-                className={`px-6 py-3 rounded-xl text-xs font-black transition-all whitespace-nowrap uppercase tracking-widest ${dateRange === mode ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xl' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-              >
-                {mode === 'today' ? 'امروز' : mode === 'month' ? '۳۰ روز اخیر' : mode === 'year' ? 'سال اخیر' : 'بازه دلخواه'}
-              </button>
-            ))}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
+            <button
+              type="button"
+              onClick={() => {
+                const rangeLabel = dateRange === 'today' ? 'امروز' : dateRange === 'month' ? '۳۰ روز اخیر' : dateRange === 'year' ? 'سال اخیر' : 'بازه دلخواه';
+                exportReportsToExcel(filteredInvoices, stats, `گزارش_مالی_${rangeLabel}`);
+              }}
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-emerald-500/20 cursor-pointer"
+            >
+              📥 دریافت فایل اکسل (XLSX)
+            </button>
+            <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+              {(['today', 'month', 'year', 'custom'] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setDateRange(mode)}
+                  className={`px-5 py-3 rounded-xl text-xs font-black transition-all whitespace-nowrap uppercase tracking-widest ${dateRange === mode ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xl' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                  {mode === 'today' ? 'امروز' : mode === 'month' ? '۳۰ روز اخیر' : mode === 'year' ? 'سال اخیر' : 'بازه دلخواه'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

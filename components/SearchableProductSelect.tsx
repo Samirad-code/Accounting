@@ -51,7 +51,19 @@ const SearchableProductSelect: React.FC<SearchableProductSelectProps> = ({ value
         }}
       />
       {isOpen && (
-        <div className="absolute z-[100] top-full right-0 left-0 mt-1 max-h-64 overflow-y-auto bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl shadow-2xl custom-scrollbar animate-in fade-in slide-in-from-top-2">
+        <>
+          {/* Overlay to catch clicks outside the list */}
+          <div 
+            className="fixed inset-0 z-[90] bg-transparent cursor-default animate-in fade-in duration-100" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+            }} 
+          />
+          <div 
+            className="absolute z-[100] top-full right-0 left-0 mt-1 max-h-64 overflow-y-auto bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-xl shadow-2xl custom-scrollbar animate-in fade-in slide-in-from-top-2"
+            onClick={(e) => e.stopPropagation()}
+          >
           {filtered.map(p => (
             <div
               key={p.id}
@@ -86,6 +98,7 @@ const SearchableProductSelect: React.FC<SearchableProductSelectProps> = ({ value
             <div className="p-8 text-center text-gray-400 italic text-xs">کالایی یافت نشد.</div>
           )}
         </div>
+        </>
       )}
     </div>
   );

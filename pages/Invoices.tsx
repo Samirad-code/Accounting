@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { db } from '../db';
 import { Invoice, InvoiceItem, InvoiceType, Product, Customer, PaymentMethod } from '../types';
-import { formatCurrency, formatJalali, exportToPDF } from '../utils';
+import { formatCurrency, formatJalali, exportToPDF, printInvoice } from '../utils';
 import JalaliDatePicker from '../components/JalaliDatePicker';
 import InvoiceDetailModal from '../components/InvoiceDetailModal';
 import SearchableProductSelect from '../components/SearchableProductSelect';
@@ -20,9 +20,14 @@ const Invoices: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'totalAmount' | 'customerName'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [minAmount, setMinAmount] = useState<string>('');
+  const [maxAmount, setMaxAmount] = useState<string>('');
+  const [paymentStatus, setPaymentStatus] = useState<'ALL' | 'PAID' | 'DEBT'>('ALL');
+  const [containingCategory, setContainingCategory] = useState<string>('ALL');
 
   const products = db.getProducts();
   const customers = db.getCustomers();
+  const categories = db.getCategories();
 
   const [newInv, setNewInv] = useState<{
     date: string;
@@ -74,7 +79,26 @@ const Invoices: React.FC = () => {
         matchEnd = invDate <= end;
       }
 
-      return matchSearch && matchType && matchCustomer && matchStart && matchEnd;
+      // Invoice Amount Range limits
+      const numMinAmount = minAmount !== '' ? Number(minAmount) : -Infinity;
+      const numMaxAmount = maxAmount !== '' ? Number(maxAmount) : Infinity;
+      const matchAmount = inv.totalAmount >= numMinAmount && inv.totalAmount <= numMaxAmount;
+
+      // Payment settlement Status
+      let matchPayment = true;
+      if (paymentStatus === 'PAID') {
+        matchPayment = inv.remainingAmount <= 0;
+      } else if (paymentStatus === 'DEBT') {
+        matchPayment = inv.remainingAmount > 0;
+      }
+
+      // Containing Category Overlap
+      const matchCategory = containingCategory === 'ALL' || inv.items.some(item => {
+        const prod = products.find(p => p.id === item.productId);
+        return prod?.category === containingCategory;
+      });
+
+      return matchSearch && matchType && matchCustomer && matchStart && matchEnd && matchAmount && matchPayment && matchCategory;
     });
 
     return [...filtered].sort((a, b) => {
@@ -90,7 +114,7 @@ const Invoices: React.FC = () => {
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [invoices, searchTerm, typeFilter, customerFilter, startDate, endDate, sortBy, sortOrder]);
+  }, [invoices, searchTerm, typeFilter, customerFilter, startDate, endDate, minAmount, maxAmount, paymentStatus, containingCategory, sortBy, sortOrder]);
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -98,6 +122,10 @@ const Invoices: React.FC = () => {
     setCustomerFilter('ALL');
     setStartDate('');
     setEndDate('');
+    setMinAmount('');
+    setMaxAmount('');
+    setPaymentStatus('ALL');
+    setContainingCategory('ALL');
     setSortBy('date');
     setSortOrder('desc');
   };
@@ -399,50 +427,128 @@ const Invoices: React.FC = () => {
       </div>
 
       <div className="bg-slate-50/50 dark:bg-slate-800/30 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-inner space-y-6">
-        <div className="flex flex-wrap items-center gap-6">
-          <div className="flex items-center gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Invoice Type */}
+          <div className="flex flex-col gap-2">
             <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">نوع فاکتور:</span>
-            <select className="text-sm font-bold p-3 px-5 border-2 border-transparent focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)}>
-              <option value="ALL">همه انواع</option>
+            <select 
+              className="text-sm font-bold p-3 px-4 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" 
+              value={typeFilter} 
+              onChange={(e) => setTypeFilter(e.target.value as any)}
+            >
+              <option value="ALL">همه انواع (خرده و عمده)</option>
               <option value={InvoiceType.RETAIL}>خرده‌فروشی</option>
               <option value={InvoiceType.WHOLESALE}>عمده‌فروشی</option>
             </select>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Customer */}
+          <div className="flex flex-col gap-2">
             <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">مشتری:</span>
-            <select className="text-sm font-bold p-3 px-5 border-2 border-transparent focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all max-w-[200px]" value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)}>
+            <select 
+              className="text-sm font-bold p-3 px-4 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" 
+              value={customerFilter} 
+              onChange={(e) => setCustomerFilter(e.target.value)}
+            >
               <option value="ALL">همه مشتریان</option>
               {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">از تاریخ:</span>
-            <JalaliDatePicker value={startDate} onChange={setStartDate} placeholder="شروع..." />
+
+          {/* Containing Category overlap */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">شامل کالای دسته:</span>
+            <select 
+              className="text-sm font-bold p-3 px-4 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" 
+              value={containingCategory} 
+              onChange={(e) => setContainingCategory(e.target.value)}
+            >
+              <option value="ALL">هر دسته‌بندی</option>
+              {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+            </select>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">تا تاریخ:</span>
-            <JalaliDatePicker value={endDate} onChange={setEndDate} placeholder="پایان..." />
+
+          {/* Payment Debt Status */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">وضعیت تسویه فاکتور:</span>
+            <select 
+              className="text-sm font-bold p-3 px-4 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all" 
+              value={paymentStatus} 
+              onChange={(e) => setPaymentStatus(e.target.value as any)}
+            >
+              <option value="ALL">همه وضعیت‌ها</option>
+              <option value="PAID">تسویه شده (بدون مانده بدهی)</option>
+              <option value="DEBT">دارای مانده بدهی (بدهکاران)</option>
+            </select>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">مرتب‌سازی:</span>
-            <div className="flex items-center -space-x-2 rtl:space-x-reverse">
-              <select className="text-sm font-bold p-3 pl-8 pr-5 border focus:border-blue-500 rounded-r-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all border-slate-200 dark:border-slate-700" value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
-                <option value="date">تاریخ فاکتور</option>
-                <option value="totalAmount">مبلغ کل فاکتور</option>
-                <option value="customerName">نام مشتری</option>
-              </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4 border-t border-slate-100 dark:border-slate-800 items-end">
+          {/* Invoice Date boundaries */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">بازه تاریخ ثبت فاکتور (شمسی):</span>
+            <div className="grid grid-cols-2 gap-3">
+              <JalaliDatePicker value={startDate} onChange={setStartDate} placeholder="از تاریخ..." />
+              <JalaliDatePicker value={endDate} onChange={setEndDate} placeholder="تا تاریخ..." />
+            </div>
+          </div>
+
+          {/* Invoice Price/Amount range */}
+          <div className="flex flex-col gap-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">بازه مبلغ کل فاکتور (تومان):</span>
+            <div className="grid grid-cols-2 gap-3">
+              <input 
+                type="number"
+                placeholder="حداقل مبلغ..."
+                className="p-3 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none text-sm font-bold shadow-sm transition-all"
+                value={minAmount}
+                onChange={(e) => setMinAmount(e.target.value)}
+              />
+              <input 
+                type="number"
+                placeholder="حداکثر مبلغ..."
+                className="p-3 border-2 border-slate-100 dark:border-slate-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none text-sm font-bold shadow-sm transition-all"
+                value={maxAmount}
+                onChange={(e) => setMaxAmount(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Sort Order Selector */}
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">ترتیب نمایش:</span>
+              <div className="flex items-center -space-x-2 rtl:space-x-reverse">
+                <select 
+                  className="w-full text-sm font-bold p-3 pl-8 pr-4 border focus:border-blue-500 rounded-r-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all border-slate-200 dark:border-slate-700" 
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                >
+                  <option value="date">تاریخ فاکتور</option>
+                  <option value="totalAmount">مبلغ کل فاکتور</option>
+                  <option value="customerName">نام مشتری</option>
+                </select>
+                <button 
+                  type="button"
+                  onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                  className="px-4 py-3 border shadow-sm rounded-l-xl bg-white dark:bg-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-1 border-slate-200 dark:border-slate-700 hover:border-blue-500"
+                  title="تغییر جهت مرتب‌سازی"
+                >
+                  <span>{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Clear button */}
+            <div className="flex flex-col justify-end">
               <button 
-                type="button"
-                onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                className="text-sm font-bold p-3 px-4 border shadow-sm rounded-l-xl bg-white dark:bg-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-1.5 border-slate-200 dark:border-slate-700 hover:border-blue-500"
-                title="تغییر جهت مرتب‌سازی"
+                onClick={clearFilters} 
+                className="w-full text-center px-4 py-3 border-2 border-slate-200 dark:border-slate-700 hover:border-red-500 dark:hover:border-red-500 hover:text-red-500 dark:hover:text-red-400 rounded-xl text-xs font-black transition-all text-slate-500 dark:text-slate-400 cursor-pointer"
               >
-                <span>{sortOrder === 'asc' ? '▲' : '▼'}</span>
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">{sortOrder === 'asc' ? 'صعودی' : 'نزولی'}</span>
+                🧹 پاکسازی فیلترها
               </button>
             </div>
           </div>
-          <button onClick={clearFilters} className="mr-auto text-xs font-black text-rose-500 hover:text-rose-600 transition-colors uppercase tracking-widest">پاکسازی فیلترها</button>
         </div>
       </div>
 
@@ -493,7 +599,7 @@ const Invoices: React.FC = () => {
                   <td className="p-6 text-center">
                     <div className="flex justify-center gap-3">
                       <button onClick={() => setViewingInvoice(inv)} className="p-2.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all active:scale-90" title="مشاهده">👁️</button>
-                      <button onClick={() => window.print()} className="p-2.5 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all active:scale-90" title="چاپ">🖨️</button>
+                      <button onClick={() => printInvoice(inv)} className="p-2.5 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all active:scale-90 cursor-pointer" title="چاپ سریع فیش">⚡🖨️</button>
                     </div>
                   </td>
                 </tr>
