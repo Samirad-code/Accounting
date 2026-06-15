@@ -292,62 +292,116 @@ const Products: React.FC = () => {
               <th className="p-6 text-center">قیمت خرید</th>
               <th className="p-6 text-center">خرده‌فروشی</th>
               <th className="p-6 text-center">عمده‌فروشی</th>
+              <th className="p-6 text-center">وضعیت سودآوری</th>
               <th className="p-6 text-center">عملیات</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-            {filteredProducts.map(p => (
-              <tr key={p.id} className={`hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group ${selectedIds.includes(p.id) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
-                <td className="p-6 text-center">
-                  <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleSelectProduct(p.id)} className="w-5 h-5 rounded-lg border-2 border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500" />
-                </td>
-                <td className="p-6">
-                  <div className="font-black text-slate-800 dark:text-slate-200 text-base group-hover:text-blue-600 transition-colors">{p.name}</div>
-                </td>
-                <td className="p-6">
-                  <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-xl uppercase tracking-widest">{p.category}</span>
-                  <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-2">کد: {p.internalCode || '---'}</div>
-                </td>
-                <td className={`p-6 text-center font-black text-base ${getStockStatusColor(p.quantity, p.lowStockThreshold)}`}>{p.quantity}</td>
-                <td className="p-6 text-center">
-                  {quickEditingId === p.id ? (
-                    <div className="flex items-center gap-2 justify-center animate-in zoom-in-95 duration-200">
-                      <input 
-                        autoFocus
-                        type="number" 
-                        className="w-32 p-2 border-2 border-blue-500 rounded-xl bg-white dark:bg-slate-800 dark:text-white text-sm text-center font-black shadow-lg"
-                        value={quickCost}
-                        onChange={e => setQuickCost(Number(e.target.value))}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') handleQuickCostUpdate(p.id, quickCost);
-                          if (e.key === 'Escape') setQuickEditingId(null);
+            {filteredProducts.map(p => {
+              const getProfitabilityStatus = () => {
+                if (!p.avgCost || p.avgCost === 0) {
+                  if (p.retailPrice > 0) {
+                    return { 
+                      label: 'سود بالا', 
+                      color: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/20', 
+                      icon: '🟢', 
+                      percent: 100 
+                    };
+                  }
+                  return { 
+                    label: 'نامشخص', 
+                    color: 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 border-slate-150', 
+                    icon: '⚪', 
+                    percent: 0 
+                  };
+                }
+                const margin = ((p.retailPrice - p.avgCost) / p.avgCost) * 100;
+                if (margin >= 35) {
+                  return { 
+                    label: 'سود بالا', 
+                    color: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/20', 
+                    icon: '🟢', 
+                    percent: Math.round(margin) 
+                  };
+                } else if (margin >= 15) {
+                  return { 
+                    label: 'سود متوسط', 
+                    color: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-955/30 border border-amber-100 dark:border-amber-900/20', 
+                    icon: '🟡', 
+                    percent: Math.round(margin) 
+                  };
+                } else {
+                  return { 
+                    label: 'سود پایین', 
+                    color: 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/20', 
+                    icon: '🔴', 
+                    percent: Math.round(margin) 
+                  };
+                }
+              };
+
+              const prof = getProfitabilityStatus();
+
+              return (
+                <tr key={p.id} className={`hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors group ${selectedIds.includes(p.id) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
+                  <td className="p-6 text-center">
+                    <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleSelectProduct(p.id)} className="w-5 h-5 rounded-lg border-2 border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500" />
+                  </td>
+                  <td className="p-6">
+                    <div className="font-black text-slate-800 dark:text-slate-200 text-base group-hover:text-blue-600 transition-colors">{p.name}</div>
+                  </td>
+                  <td className="p-6">
+                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-xl uppercase tracking-widest">{p.category}</span>
+                    <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-2">کد: {p.internalCode || '---'}</div>
+                  </td>
+                  <td className={`p-6 text-center font-black text-base ${getStockStatusColor(p.quantity, p.lowStockThreshold)}`}>{p.quantity}</td>
+                  <td className="p-6 text-center">
+                    {quickEditingId === p.id ? (
+                      <div className="flex items-center gap-2 justify-center animate-in zoom-in-95 duration-200">
+                        <input 
+                          autoFocus
+                          type="number" 
+                          className="w-32 p-2 border-2 border-blue-500 rounded-xl bg-white dark:bg-slate-800 dark:text-white text-sm text-center font-black shadow-lg"
+                          value={quickCost}
+                          onChange={e => setQuickCost(Number(e.target.value))}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleQuickCostUpdate(p.id, quickCost);
+                            if (e.key === 'Escape') setQuickEditingId(null);
+                          }}
+                        />
+                        <button onClick={() => handleQuickCostUpdate(p.id, quickCost)} className="bg-emerald-500 text-white p-2 rounded-xl shadow-lg shadow-emerald-500/20">✓</button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="text-slate-500 dark:text-slate-400 font-bold text-sm cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center gap-2 group/cost transition-all"
+                        onClick={() => {
+                          setQuickEditingId(p.id);
+                          setQuickCost(p.avgCost);
                         }}
-                      />
-                      <button onClick={() => handleQuickCostUpdate(p.id, quickCost)} className="bg-emerald-500 text-white p-2 rounded-xl shadow-lg shadow-emerald-500/20">✓</button>
+                      >
+                        {formatCurrency(p.avgCost)}
+                        <span className="opacity-0 group-hover/cost:opacity-100 text-xs transition-opacity">✏️</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-6 text-center text-blue-600 dark:text-blue-400 font-black text-base font-mono">{formatCurrency(p.retailPrice)}</td>
+                  <td className="p-6 text-center text-indigo-600 dark:text-indigo-400 font-black text-base font-mono">{formatCurrency(p.wholesalePrice)}</td>
+                  <td className="p-6 text-center">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border ${prof.color}`}>
+                      <span>{prof.icon}</span>
+                      <span>{prof.label}</span>
+                      {prof.percent > 0 && <span className="font-mono text-[10px] opacity-80" dir="ltr">({prof.percent}%)</span>}
+                    </span>
+                  </td>
+                  <td className="p-6 text-center">
+                    <div className="flex justify-center gap-3">
+                      <button onClick={() => openEditModal(p)} className="p-2.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all active:scale-90" title="ویرایش">✏️</button>
+                      <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all active:scale-90" title="حذف">🗑️</button>
                     </div>
-                  ) : (
-                    <div 
-                      className="text-slate-500 dark:text-slate-400 font-bold text-sm cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center gap-2 group/cost transition-all"
-                      onClick={() => {
-                        setQuickEditingId(p.id);
-                        setQuickCost(p.avgCost);
-                      }}
-                    >
-                      {formatCurrency(p.avgCost)}
-                      <span className="opacity-0 group-hover/cost:opacity-100 text-xs transition-opacity">✏️</span>
-                    </div>
-                  )}
-                </td>
-                <td className="p-6 text-center text-blue-600 dark:text-blue-400 font-black text-base font-mono">{formatCurrency(p.retailPrice)}</td>
-                <td className="p-6 text-center text-indigo-600 dark:text-indigo-400 font-black text-base font-mono">{formatCurrency(p.wholesalePrice)}</td>
-                <td className="p-6 text-center">
-                  <div className="flex justify-center gap-3">
-                    <button onClick={() => openEditModal(p)} className="p-2.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all active:scale-90" title="ویرایش">✏️</button>
-                    <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all active:scale-90" title="حذف">🗑️</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -449,7 +503,23 @@ const Products: React.FC = () => {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-bold mb-1">دسته</label>
-                  <select required className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                  <select 
+                    required 
+                    className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" 
+                    value={formData.category} 
+                    onChange={e => {
+                      const catName = e.target.value;
+                      const selectedCat = categories.find(c => c.name === catName);
+                      const retailMargin = selectedCat?.retailMargin ?? 50;
+                      const wholesaleMargin = selectedCat?.wholesaleMargin ?? 20;
+                      setFormData(prev => ({
+                        ...prev,
+                        category: catName,
+                        retailPrice: prev.avgCost > 0 ? Math.round(prev.avgCost * (1 + retailMargin / 100)) : prev.retailPrice,
+                        wholesalePrice: prev.avgCost > 0 ? Math.round(prev.avgCost * (1 + wholesaleMargin / 100)) : prev.wholesalePrice
+                      }));
+                    }}
+                  >
                     {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                   </select>
                 </div>
@@ -463,15 +533,42 @@ const Products: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-bold mb-1">قیمت خرید</label>
-                  <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" value={formData.avgCost} onChange={e => setFormData({...formData, avgCost: parseInt(e.target.value) || 0})} />
+                  <input 
+                    required 
+                    type="number" 
+                    className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none" 
+                    value={formData.avgCost} 
+                    onChange={e => {
+                      const newCost = parseInt(e.target.value) || 0;
+                      const selectedCat = categories.find(c => c.name === formData.category);
+                      const retailMargin = selectedCat?.retailMargin ?? 50;
+                      const wholesaleMargin = selectedCat?.wholesaleMargin ?? 20;
+                      setFormData(prev => ({
+                        ...prev,
+                        avgCost: newCost,
+                        retailPrice: Math.round(newCost * (1 + retailMargin / 100)),
+                        wholesalePrice: Math.round(newCost * (1 + wholesaleMargin / 100))
+                      }));
+                    }} 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-bold mb-1">قیمت خرده</label>
                   <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-bold text-blue-600" value={formData.retailPrice} onChange={e => setFormData({...formData, retailPrice: parseInt(e.target.value) || 0})} />
+                  {formData.retailPrice > 0 && (
+                    <div className="mt-1 text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                      سود: {formatCurrency(formData.retailPrice - formData.avgCost)} ({formData.avgCost > 0 ? Math.round(((formData.retailPrice - formData.avgCost) / formData.avgCost) * 100) : 0}٪)
+                    </div>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-bold mb-1">قیمت عمده</label>
                   <input required type="number" className="w-full p-3 border dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none font-bold text-indigo-600" value={formData.wholesalePrice} onChange={e => setFormData({...formData, wholesalePrice: parseInt(e.target.value) || 0})} />
+                  {formData.wholesalePrice > 0 && (
+                    <div className="mt-1 text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                      سود: {formatCurrency(formData.wholesalePrice - formData.avgCost)} ({formData.avgCost > 0 ? Math.round(((formData.wholesalePrice - formData.avgCost) / formData.avgCost) * 100) : 0}٪)
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="pt-6 flex gap-3">

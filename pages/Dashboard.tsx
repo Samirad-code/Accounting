@@ -94,15 +94,38 @@ const Dashboard: React.FC = () => {
   }, []);
 
   // Stats calculation
-  const totalSales = invoices.reduce((acc, inv) => acc + (inv.status === 'ACTIVE' ? inv.totalAmount : 0), 0);
-  const totalProfit = invoices.reduce((acc, inv) => {
-    if (inv.status !== 'ACTIVE') return acc;
-    const invProfit = inv.items.reduce((itemAcc, item) => {
-      const itemProfit = (item.unitPrice - item.costBasisAtSale) * item.qty;
-      return itemAcc + itemProfit;
+  const sevenDaysAgo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  const weeklySales = useMemo(() => {
+    return invoices.reduce((acc, inv) => {
+      if (inv.status !== 'ACTIVE') return acc;
+      const invDate = new Date(inv.date);
+      if (invDate >= sevenDaysAgo) {
+        return acc + inv.totalAmount;
+      }
+      return acc;
     }, 0);
-    return acc + invProfit - inv.discountTotal;
-  }, 0);
+  }, [invoices, sevenDaysAgo]);
+
+  const weeklyProfit = useMemo(() => {
+    return invoices.reduce((acc, inv) => {
+      if (inv.status !== 'ACTIVE') return acc;
+      const invDate = new Date(inv.date);
+      if (invDate >= sevenDaysAgo) {
+        const invProfit = inv.items.reduce((itemAcc, item) => {
+          const itemProfit = (item.unitPrice - item.costBasisAtSale) * item.qty;
+          return itemAcc + itemProfit;
+        }, 0);
+        return acc + invProfit - inv.discountTotal;
+      }
+      return acc;
+    }, 0);
+  }, [invoices, sevenDaysAgo]);
 
   const lowStockProducts = products.filter(p => p.quantity <= p.lowStockThreshold);
   const topDebtors = [...customers].sort((a, b) => a.balance - b.balance).slice(0, 5);
@@ -193,6 +216,21 @@ const Dashboard: React.FC = () => {
   const gridColor = isDark ? '#334155' : '#e2e8f0';
   const textColor = isDark ? '#94a3b8' : '#64748b';
 
+  const weeklySalesStr = formatCurrency(weeklySales);
+  const weeklyProfitStr = formatCurrency(weeklyProfit);
+  const currentMonthNetProfitStr = formatCurrency(currentMonthNetProfit);
+
+  const cardValueClass = (valStr: string) => {
+    const len = valStr.length;
+    if (len > 18) {
+      return "text-[15px] sm:text-[17px] md:text-xl lg:text-lg xl:text-[13px] 2xl:text-base font-black mt-6 tracking-tight break-all font-mono truncate w-full block";
+    }
+    if (len > 14) {
+      return "text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-[16px] 2xl:text-xl font-black mt-6 tracking-tight break-all font-mono truncate w-full block";
+    }
+    return "text-xl sm:text-2xl md:text-3xl xl:text-lg 2xl:text-2xl font-black mt-6 tracking-tight font-mono truncate w-full block";
+  };
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
       
@@ -210,66 +248,67 @@ const Dashboard: React.FC = () => {
 
       {/* Top Cards - Responsive Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 md:gap-8">
-        <div className="group bg-gradient-to-br from-blue-600 to-blue-800 p-8 rounded-[2.5rem] text-white shadow-xl shadow-blue-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+        <div className="group bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-[2rem] text-white shadow-xl shadow-blue-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl overflow-hidden border border-transparent hover:border-blue-400/30">
           <div className="flex justify-between items-start">
-            <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest opacity-80">مجموع فروش کل</p>
+            <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest opacity-80">فروش هفتگی</p>
             <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">💰</span>
           </div>
-          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{formatCurrency(totalSales)}</h3>
+          <h3 className={cardValueClass(weeklySalesStr)} title={weeklySalesStr}>{weeklySalesStr}</h3>
           <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">گزارش تجمعی</span>
-            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">Live</span>
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">۷ روز گذشته</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest font-mono">Weekly</span>
           </div>
         </div>
 
-        <div className="group bg-gradient-to-br from-emerald-500 to-emerald-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-emerald-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+        <div className="group bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-[2rem] text-white shadow-xl shadow-emerald-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl overflow-hidden border border-transparent hover:border-emerald-400/30">
           <div className="flex justify-between items-start">
-            <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest opacity-80">سود تخمینی</p>
+            <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest opacity-80">سود تخمینی هفتگی</p>
             <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">💎</span>
           </div>
-          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{formatCurrency(totalProfit)}</h3>
+          <h3 className={cardValueClass(weeklyProfitStr)} title={weeklyProfitStr}>{weeklyProfitStr}</h3>
           <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">سود خالص</span>
-            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">Net</span>
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">۷ روز گذشته</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest font-mono">Weekly</span>
           </div>
         </div>
 
-        <div className="group bg-gradient-to-br from-purple-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-purple-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+        <div className="group bg-gradient-to-br from-purple-600 to-indigo-700 p-6 rounded-[2rem] text-white shadow-xl shadow-purple-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl overflow-hidden border border-transparent hover:border-purple-400/30">
           <div className="flex justify-between items-start">
-            <p className="text-purple-100 text-[10px] font-black uppercase tracking-widest opacity-80">سود خالص ماه جاری ({currentMonthName})</p>
+            <p className="text-purple-100 text-[10px] font-black uppercase tracking-widest opacity-80 truncate-none">سود خالص ماه جاری ({currentMonthName})</p>
             <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">📊</span>
           </div>
-          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{formatCurrency(currentMonthNetProfit)}</h3>
+          <h3 className={cardValueClass(currentMonthNetProfitStr)} title={currentMonthNetProfitStr}>{currentMonthNetProfitStr}</h3>
           <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest opacity-60">تفاوت کل خرید و فروش</span>
-            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">{currentMonthName}</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest truncate">{currentMonthName}</span>
           </div>
         </div>
 
-        <div className="group bg-gradient-to-br from-indigo-500 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-indigo-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+        <div className="group bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-[2rem] text-white shadow-xl shadow-indigo-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl overflow-hidden border border-transparent hover:border-indigo-400/30">
           <div className="flex justify-between items-start">
             <p className="text-indigo-100 text-[10px] font-black uppercase tracking-widest opacity-80">فاکتورهای صادر شده</p>
             <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">🧾</span>
           </div>
-          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{invoices.length} <span className="text-sm font-black opacity-60 uppercase tracking-widest">عدد</span></h3>
+          <h3 className="text-xl sm:text-2xl md:text-3xl xl:text-lg 2xl:text-2xl font-black mt-6 tracking-tight font-mono truncate w-full block">{invoices.length} <span className="text-xs font-black opacity-60 uppercase tracking-widest">عدد</span></h3>
           <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest opacity-60">تاریخچه کامل</span>
-            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">Total</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest font-mono">Total</span>
           </div>
         </div>
 
-        <div className="group bg-gradient-to-br from-rose-500 to-rose-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-rose-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+        <div className="group bg-gradient-to-br from-rose-500 to-rose-700 p-6 rounded-[2rem] text-white shadow-xl shadow-rose-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl overflow-hidden border border-transparent hover:border-rose-400/30">
           <div className="flex justify-between items-start">
             <p className="text-rose-100 text-[10px] font-black uppercase tracking-widest opacity-80">هشدار موجودی</p>
             <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">🚨</span>
           </div>
-          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{lowStockProducts.length} <span className="text-sm font-black opacity-60 uppercase tracking-widest">کالا</span></h3>
+          <h3 className="text-xl sm:text-2xl md:text-3xl xl:text-lg 2xl:text-2xl font-black mt-6 tracking-tight font-mono truncate w-full block">{lowStockProducts.length} <span className="text-xs font-black opacity-60 uppercase tracking-widest">کالا</span></h3>
           <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest opacity-60">نیاز به شارژ</span>
-            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">Alert</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest font-mono">Alert</span>
           </div>
         </div>
       </div>
+
 
       {/* Monthly Financial Chart Section */}
       <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-sm p-6 md:p-8 transition-all hover:shadow-lg">

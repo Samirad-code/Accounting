@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { db } from '../db';
 import { Category } from '../types';
+import { formatCurrency } from '../utils';
 
 const Categories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>(db.getCategories());
@@ -13,6 +14,42 @@ const Categories: React.FC = () => {
   const [categoryName, setCategoryName] = useState('');
   const [retailMargin, setRetailMargin] = useState<number | ''>('');
   const [wholesaleMargin, setWholesaleMargin] = useState<number | ''>('');
+
+  const [productEditCategory, setProductEditCategory] = useState<Category | null>(null);
+  const [isProductListModalOpen, setIsProductListModalOpen] = useState(false);
+  const [categoryProductPrices, setCategoryProductPrices] = useState<{[productId: string]: number}>({});
+
+  const openProductListModal = (cat: Category) => {
+    setProductEditCategory(cat);
+    const catProds = db.getProducts().filter(p => p.category === cat.name);
+    const initialPrices: {[id: string]: number} = {};
+    catProds.forEach(p => {
+      initialPrices[p.id] = p.avgCost;
+    });
+    setCategoryProductPrices(initialPrices);
+    setIsProductListModalOpen(true);
+  };
+
+  const handleSaveProductPrices = () => {
+    if (!productEditCategory) return;
+    const catProds = db.getProducts().filter(p => p.category === productEditCategory.name);
+    const rMargin = productEditCategory.retailMargin ?? 50;
+    const wMargin = productEditCategory.wholesaleMargin ?? 20;
+
+    catProds.forEach(p => {
+      const newCost = categoryProductPrices[p.id];
+      if (newCost !== undefined) {
+        db.updateProduct(p.id, {
+          avgCost: newCost,
+          retailPrice: Math.round(newCost * (1 + rMargin / 100)),
+          wholesalePrice: Math.round(newCost * (1 + wMargin / 100))
+        });
+      }
+    });
+
+    setIsProductListModalOpen(false);
+    setProductEditCategory(null);
+  };
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,12 +161,20 @@ const Categories: React.FC = () => {
               </div>
             </div>
 
-            <button 
-              onClick={() => handleApplyMargins(cat.id)}
-              className="mt-auto w-full py-4 rounded-2xl border-2 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-black text-xs uppercase tracking-widest hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-all active:scale-95"
-            >
-              بروزرسانی قیمت محصولات
-            </button>
+            <div className="mt-auto space-y-2">
+              <button 
+                onClick={() => openProductListModal(cat)}
+                className="w-full py-3 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 text-blue-600 dark:text-blue-400 font-black text-xs uppercase tracking-widest hover:bg-blue-600 hover:text-white dark:hover:bg-blue-500/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <span>📝</span> مشاهده و ویرایش قیمت محصولات
+              </button>
+              <button 
+                onClick={() => handleApplyMargins(cat.id)}
+                className="w-full py-3 rounded-2xl border-2 border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-black text-xs uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <span>⚡</span> بروزرسانی گروهی قیمت فروش
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -249,6 +294,97 @@ const Categories: React.FC = () => {
                 <button onClick={handleDelete} className="flex-1 bg-rose-500 text-white p-3 rounded-xl font-bold hover:bg-rose-600 shadow-lg">بله، حذف شود</button>
                 <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 p-3 rounded-xl font-bold">خیر، انصراف</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Prices Inline Modal */}
+      {isProductListModalOpen && productEditCategory && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-200 border dark:border-slate-800 flex flex-col max-h-[90vh]">
+            <div className="p-6 bg-slate-900 text-white flex justify-between items-center shrink-0">
+              <div className="space-y-1">
+                <h4 className="font-black text-lg">لیست قیمت خرید و فروش محصولات دسته «{productEditCategory.name}»</h4>
+                <p className="text-[11px] text-slate-300 font-bold">
+                  حاشیه سود تعریف شده: خرده‌فروشی <span className="text-blue-400 font-extrabold">{(productEditCategory.retailMargin ?? 50)}٪</span> | عمده‌فروشی <span className="text-indigo-400 font-extrabold">{(productEditCategory.wholesaleMargin ?? 20)}٪</span>
+                </p>
+              </div>
+              <button onClick={() => { setIsProductListModalOpen(false); setProductEditCategory(null); }} className="text-2xl hover:text-slate-300 transition-colors">×</button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50 dark:bg-slate-950/20">
+              {db.getProducts().filter(p => p.category === productEditCategory.name).length === 0 ? (
+                <div className="text-center py-12 space-y-3">
+                  <span className="text-4xl">📦</span>
+                  <p className="text-sm font-bold text-slate-500 dark:text-slate-400">هیچ محصولی در این دسته‌بندی تعریف نشده است.</p>
+                </div>
+              ) : (
+                <div className="border border-slate-100 dark:border-slate-800/80 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
+                  <table className="w-full border-collapse text-right text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-b dark:border-slate-800">
+                        <th className="p-4 font-black">نام محصول</th>
+                        <th className="p-4 font-black">موجودی</th>
+                        <th className="p-4 font-black w-48 text-center">قیمت خرید اولیه (تومان)</th>
+                        <th className="p-4 font-black text-blue-600 dark:text-blue-400">قیمت فروش خرده‌فروشی جدید</th>
+                        <th className="p-4 font-black text-indigo-600 dark:text-indigo-400">قیمت فروش عمده‌فروشی جدید</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                      {db.getProducts().filter(p => p.category === productEditCategory.name).map(p => {
+                        const rMargin = productEditCategory.retailMargin ?? 50;
+                        const wMargin = productEditCategory.wholesaleMargin ?? 20;
+                        const currentCost = categoryProductPrices[p.id] ?? 0;
+                        const calcRetail = Math.round(currentCost * (1 + rMargin / 100));
+                        const calcWholesale = Math.round(currentCost * (1 + wMargin / 100));
+
+                        return (
+                          <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td className="p-4 font-extrabold text-slate-800 dark:text-slate-200">{p.name}</td>
+                            <td className="p-4 font-bold font-mono text-slate-500 dark:text-slate-400">
+                              {p.quantity.toLocaleString('fa-IR')}
+                            </td>
+                            <td className="p-4 flex justify-center">
+                              <input
+                                type="number"
+                                className="w-full max-w-[160px] px-3 py-2 border border-slate-250 dark:border-slate-750 rounded-lg text-center bg-slate-50 dark:bg-slate-800 dark:text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-black text-sm"
+                                value={categoryProductPrices[p.id] ?? 0}
+                                onChange={e => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  setCategoryProductPrices(prev => ({ ...prev, [p.id]: val }));
+                                }}
+                              />
+                            </td>
+                            <td className="p-4 text-blue-600 dark:text-blue-400 font-black font-mono">
+                              {calcRetail.toLocaleString('fa-IR')} <span className="text-[10px] text-slate-400 dark:text-slate-500 font-sans">({rMargin}٪ سود)</span>
+                            </td>
+                            <td className="p-4 text-indigo-600 dark:text-indigo-400 font-black font-mono">
+                              {calcWholesale.toLocaleString('fa-IR')} <span className="text-[10px] text-slate-400 dark:text-slate-500 font-sans font-sans">({wMargin}٪ سود)</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 bg-slate-50 dark:bg-slate-800/30 border-t dark:border-slate-800 flex gap-3 shrink-0">
+              <button 
+                onClick={handleSaveProductPrices}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-3.5 rounded-xl font-black shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all text-sm flex items-center justify-center gap-2"
+                disabled={db.getProducts().filter(p => p.category === productEditCategory.name).length === 0}
+              >
+                💾 ذخیره تغییرات کلی قیمت‌ها
+              </button>
+              <button 
+                onClick={() => { setIsProductListModalOpen(false); setProductEditCategory(null); }}
+                className="bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-slate-300 px-6 rounded-xl font-black text-sm hover:bg-gray-300 dark:hover:bg-slate-700 transition-colors"
+              >
+                انصراف
+              </button>
             </div>
           </div>
         </div>

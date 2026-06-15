@@ -18,6 +18,8 @@ const Invoices: React.FC = () => {
   const [customerFilter, setCustomerFilter] = useState<string>('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'totalAmount' | 'customerName'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const products = db.getProducts();
   const customers = db.getCustomers();
@@ -50,7 +52,7 @@ const Invoices: React.FC = () => {
   const remaining = finalTotal - newInv.paidAmount;
 
   const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
+    const filtered = invoices.filter(inv => {
       const matchSearch = inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (inv.customerName || 'مشتری گذری').toLowerCase().includes(searchTerm.toLowerCase());
       const matchType = typeFilter === 'ALL' || inv.type === typeFilter;
@@ -74,7 +76,21 @@ const Invoices: React.FC = () => {
 
       return matchSearch && matchType && matchCustomer && matchStart && matchEnd;
     });
-  }, [invoices, searchTerm, typeFilter, customerFilter, startDate, endDate]);
+
+    return [...filtered].sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'date') {
+        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else if (sortBy === 'totalAmount') {
+        comparison = a.totalAmount - b.totalAmount;
+      } else if (sortBy === 'customerName') {
+        const nameA = a.customerName || 'مشتری گذری';
+        const nameB = b.customerName || 'مشتری گذری';
+        comparison = nameA.localeCompare(nameB, 'fa');
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [invoices, searchTerm, typeFilter, customerFilter, startDate, endDate, sortBy, sortOrder]);
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -82,6 +98,8 @@ const Invoices: React.FC = () => {
     setCustomerFilter('ALL');
     setStartDate('');
     setEndDate('');
+    setSortBy('date');
+    setSortOrder('desc');
   };
 
   const handleOpenAddMode = () => {
@@ -230,8 +248,8 @@ const Invoices: React.FC = () => {
           </div>
 
           <div className="border dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900 overflow-visible">
-            <div className="overflow-x-auto min-h-[300px]">
-              <table className="w-full text-right">
+            <div className="overflow-visible min-h-[350px]">
+              <table className="w-full text-right overflow-visible">
                 <thead className="bg-slate-800 text-white text-xs">
                   <tr>
                     <th className="p-3">انتخاب کالا / ثبت دستی</th>
@@ -241,9 +259,9 @@ const Invoices: React.FC = () => {
                     <th className="p-3 w-12"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-slate-800">
+                <tbody className="divide-y dark:divide-slate-800 overflow-visible">
                   {newInv.items.map((item, idx) => (
-                    <tr key={idx}>
+                    <tr key={idx} className="relative hover:z-50 focus-within:z-50 transition-all">
                       <td className="p-3">
                         <SearchableProductSelect 
                           value={item.productId || `MANUAL:${item.manualName || ''}`}
@@ -338,6 +356,30 @@ const Invoices: React.FC = () => {
     setViewingInvoice(null);
   };
 
+  const renderSortableHeader = (label: string, field: 'date' | 'totalAmount' | 'customerName', className = "") => {
+    const isSorted = sortBy === field;
+    return (
+      <th 
+        className={`p-6 cursor-pointer select-none transition-colors hover:bg-slate-100/10 dark:hover:bg-slate-800/10 ${className}`}
+        onClick={() => {
+          if (sortBy === field) {
+            setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSortBy(field);
+            setSortOrder('desc');
+          }
+        }}
+      >
+        <div className={`flex items-center gap-1.5 ${className.includes('text-center') ? 'justify-center font-black' : 'font-black'}`}>
+          <span>{label}</span>
+          <span className={`text-[11px] font-sans ${isSorted ? 'opacity-100 text-blue-500 font-extrabold' : 'opacity-30'}`}>
+            {isSorted ? (sortOrder === 'asc' ? '▲' : '▼') : '⇅'}
+          </span>
+        </div>
+      </th>
+    );
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -381,6 +423,25 @@ const Invoices: React.FC = () => {
             <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">تا تاریخ:</span>
             <JalaliDatePicker value={endDate} onChange={setEndDate} placeholder="پایان..." />
           </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">مرتب‌سازی:</span>
+            <div className="flex items-center -space-x-2 rtl:space-x-reverse">
+              <select className="text-sm font-bold p-3 pl-8 pr-5 border focus:border-blue-500 rounded-r-xl bg-white dark:bg-slate-900 dark:text-white outline-none shadow-sm transition-all border-slate-200 dark:border-slate-700" value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
+                <option value="date">تاریخ فاکتور</option>
+                <option value="totalAmount">مبلغ کل فاکتور</option>
+                <option value="customerName">نام مشتری</option>
+              </select>
+              <button 
+                type="button"
+                onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                className="text-sm font-bold p-3 px-4 border shadow-sm rounded-l-xl bg-white dark:bg-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-1.5 border-slate-200 dark:border-slate-700 hover:border-blue-500"
+                title="تغییر جهت مرتب‌سازی"
+              >
+                <span>{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">{sortOrder === 'asc' ? 'صعودی' : 'نزولی'}</span>
+              </button>
+            </div>
+          </div>
           <button onClick={clearFilters} className="mr-auto text-xs font-black text-rose-500 hover:text-rose-600 transition-colors uppercase tracking-widest">پاکسازی فیلترها</button>
         </div>
       </div>
@@ -390,10 +451,10 @@ const Invoices: React.FC = () => {
           <thead className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-black uppercase text-[10px] tracking-widest">
             <tr>
               <th className="p-6">شماره فاکتور</th>
-              <th className="p-6">تاریخ</th>
-              <th className="p-6">مشتری</th>
+              {renderSortableHeader('تاریخ', 'date')}
+              {renderSortableHeader('مشتری', 'customerName')}
               <th className="p-6 text-center">نوع</th>
-              <th className="p-6 text-center">مبلغ کل</th>
+              {renderSortableHeader('مبلغ کل', 'totalAmount', 'text-center')}
               <th className="p-6 text-center">وضعیت پرداخت</th>
               <th className="p-6 text-center">عملیات</th>
             </tr>
