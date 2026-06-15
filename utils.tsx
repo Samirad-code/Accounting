@@ -36,10 +36,13 @@ export const getStockStatusColor = (current: number, threshold: number) => {
 export const exportToPDF = (invoice: Invoice, filename: string) => {
   const container = document.createElement('div');
   container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.top = '-9999px';
+  container.style.left = '0';
+  container.style.top = '0';
   container.style.width = '800px';
   container.style.direction = 'rtl';
+  container.style.zIndex = '-9999';
+  container.style.pointerEvents = 'none';
+  container.style.backgroundColor = '#ffffff';
   
   const dateStr = formatJalali(invoice.date);
   const dueDateStr = invoice.dueDate ? formatJalali(invoice.dueDate) : '---';
@@ -169,7 +172,9 @@ export const exportToPDF = (invoice: Invoice, filename: string) => {
     html2canvas: { 
       scale: 2, 
       useCORS: true,
-      letterRendering: true
+      letterRendering: true,
+      scrollX: 0,
+      scrollY: 0
     },
     jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
   };
