@@ -31,24 +31,28 @@ export const getStockStatusColor = (current: number, threshold: number) => {
 };
 
 /**
- * Beautiful PDF/Print invoice generator
+ * Beautiful PDF/Print invoice generator that renders inside an isolated iframe
+ * to solve rendering/blank page issues.
  */
 export const exportToPDF = (invoice: Invoice, filename: string) => {
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.left = '0';
-  container.style.top = '0';
-  container.style.width = '800px';
-  container.style.direction = 'rtl';
-  container.style.zIndex = '-9999';
-  container.style.pointerEvents = 'none';
-  container.style.backgroundColor = '#ffffff';
-  
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '-9999px';
+  iframe.style.top = '0';
+  iframe.style.width = '1024px';
+  iframe.style.height = '1448px';
+  iframe.style.border = '0';
+  iframe.style.zIndex = '-9999';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document || iframe.contentDocument;
+  if (!doc) return;
+
   const dateStr = formatJalali(invoice.date);
   const dueDateStr = invoice.dueDate ? formatJalali(invoice.dueDate) : '---';
-  
+
   const itemsRows = invoice.items.map((item, idx) => `
-    <tr style="border-bottom: 1px solid #e2e8f0; font-size: 13px;">
+    <tr style="border-bottom: 1px solid #cbd5e1; font-size: 13px;">
       <td style="padding: 12px 10px; font-weight: bold; text-align: center; color: #475569; border: 1px solid #cbd5e1;">${(idx + 1).toLocaleString('fa-IR')}</td>
       <td style="padding: 12px 10px; font-weight: 800; text-align: right; color: #0f172a; border: 1px solid #cbd5e1;">${item.productName}</td>
       <td style="padding: 12px 10px; font-weight: bold; text-align: center; color: #0f172a; border: 1px solid #cbd5e1;">${item.qty.toLocaleString('fa-IR')}</td>
@@ -57,145 +61,187 @@ export const exportToPDF = (invoice: Invoice, filename: string) => {
     </tr>
   `).join('');
 
-  container.innerHTML = `
-    <div style="font-family: 'Inter', 'Vazirmatn', 'Tahoma', sans-serif; padding: 40px; background-color: #ffffff; color: #1e293b; width: 800px; box-sizing: border-box; direction: rtl; text-align: right; line-height: 1.6;">
-      <!-- Header -->
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px double #1e3a8a; padding-bottom: 15px; margin-bottom: 25px;">
-        <div>
-          <h1 style="font-size: 24px; font-weight: 900; color: #1e3a8a; margin: 0; display: flex; align-items: center; gap: 8px;">
-            💎 فروشگاه پلاستیک‌بان
-          </h1>
-          <p style="font-size: 11px; color: #64748b; font-weight: bold; margin: 5px 0 0 0;">سیستم حسابداری فروشگاهی و ملزومات پلاستیک و بسته‌بندی</p>
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="fa">
+    <head>
+      <meta charset="utf-8">
+      <title>فاکتور</title>
+      <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap" rel="stylesheet">
+      <style>
+        body {
+          font-family: 'Vazirmatn', 'Tahoma', 'Segoe UI', sans-serif;
+          margin: 0;
+          padding: 30px;
+          background-color: #ffffff;
+          color: #1e293b;
+          width: 800px;
+          box-sizing: border-box;
+          direction: rtl;
+          text-align: right;
+          line-height: 1.6;
+        }
+        th, td {
+          font-family: 'Vazirmatn', 'Tahoma', 'Segoe UI', sans-serif;
+        }
+      </style>
+    </head>
+    <body>
+      <div style="width: 100%; box-sizing: border-box;">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px double #1e3a8a; padding-bottom: 15px; margin-bottom: 25px;">
+          <div style="float: right;">
+            <h1 style="font-size: 24px; font-weight: 900; color: #1e3a8a; margin: 0;">
+              💎 فروشگاه پلاستیک‌بان
+            </h1>
+            <p style="font-size: 11px; color: #64748b; font-weight: bold; margin: 5px 0 0 0;">سیستم حسابداری فروشگاهی و ملزومات پلاستیک و بسته‌بندی</p>
+          </div>
+          <div style="float: left; text-align: left;">
+            <h2 style="font-size: 18px; font-weight: 950; color: #1e3a8a; margin: 0; background-color: #eff6ff; padding: 8px 24px; border-radius: 12px; border: 2px solid #3b82f6;">صورتحساب فروش کالا</h2>
+          </div>
+          <div style="clear: both;"></div>
         </div>
-        <div style="text-align: left;">
-          <h2 style="font-size: 18px; font-weight: 950; color: #1e3a8a; margin: 0; background-color: #eff6ff; padding: 8px 24px; border-radius: 12px; border: 2px solid #3b82f6;">صورتحساب فروش کالا</h2>
-        </div>
-      </div>
 
-      <!-- Document Meta Details -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; font-size: 13px; background-color: #f8fafc; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0;">
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-          <div><strong style="color: #475569;">شماره فاکتور:</strong> <span style="font-family: monospace; font-weight: 900; color: #1e3a8a; font-size: 14px;">${invoice.invoiceNumber}</span></div>
-          <div><strong style="color: #475569;">تاریخ صدور:</strong> <span style="font-weight: bold; color: #0f172a;">${dateStr}</span></div>
-          <div><strong style="color: #475569;">نوع فاکتور:</strong> <span style="font-weight: bold; color: #0f172a;">${invoice.type === 'RETAIL' ? 'خرده‌فروشی' : 'عمده‌فروشی'}</span></div>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 10px; text-align: left; align-items: flex-end;">
-          <div><strong style="color: #475569;">نام خریدار:</strong> <span style="font-weight: bold; color: #1e3a8a; font-size: 14px;">${invoice.customerName || 'مشتری گذری'}</span></div>
-          <div><strong style="color: #475569;">موعد تسویه:</strong> <span style="font-weight: bold; color: #ea580c;">${dueDateStr}</span></div>
-          <div><strong style="color: #475569;">وضعیت تسویه فاکتور:</strong> <span style="font-weight: 900; color: ${invoice.remainingAmount === 0 ? '#15803d' : '#b91c1c'};">${invoice.remainingAmount === 0 ? '✔️ تسویه شده' : '⚠️ بدهکار'}</span></div>
-        </div>
-      </div>
-
-      <!-- Table -->
-      <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 25px; border: 1px solid #cbd5e1;">
-        <thead>
-          <tr style="background-color: #1e3a8a; color: #ffffff; text-align: right;">
-            <th style="padding: 12px 10px; font-weight: 900; text-align: center; width: 45px; border: 1px solid #1e3a8a;">ردیف</th>
-            <th style="padding: 12px 10px; font-weight: 900; text-align: right; border: 1px solid #1e3a8a;">نام شرح کالا / خدمات</th>
-            <th style="padding: 12px 10px; font-weight: 900; text-align: center; width: 75px; border: 1px solid #1e3a8a;">تعداد</th>
-            <th style="padding: 12px 10px; font-weight: 900; text-align: center; width: 140px; border: 1px solid #1e3a8a;">قیمت واحد (تومان)</th>
-            <th style="padding: 12px 10px; font-weight: 900; text-align: center; width: 150px; border: 1px solid #1e3a8a;">جمع کل (تومان)</th>
+        <!-- Document Meta Details -->
+        <table style="width: 100%; margin-bottom: 25px; border-collapse: collapse;">
+          <tr>
+            <td style="width: 50%; vertical-align: top; background-color: #f8fafc; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; font-size: 13px;">
+              <div style="margin-bottom: 8px;"><strong style="color: #475569;">شماره فاکتور:</strong> <span style="font-family: monospace; font-weight: 900; color: #1e3a8a; font-size: 14px;">${invoice.invoiceNumber}</span></div>
+              <div style="margin-bottom: 8px;"><strong style="color: #475569;">تاریخ صدور:</strong> <span style="font-weight: bold; color: #0f172a;">${dateStr}</span></div>
+              <div><strong style="color: #475569;">نوع فاکتور:</strong> <span style="font-weight: bold; color: #0f172a;">${invoice.type === 'RETAIL' ? 'خرده‌فروشی' : 'عمده‌فروشی'}</span></div>
+            </td>
+            <td style="width: 4%;"></td>
+            <td style="width: 46%; vertical-align: top; background-color: #f8fafc; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; font-size: 13px; text-align: right;">
+              <div style="margin-bottom: 8px;"><strong style="color: #475569;">نام خریدار:</strong> <span style="font-weight: bold; color: #1e3a8a; font-size: 14px;">${invoice.customerName || 'مشتری گذری'}</span></div>
+              <div style="margin-bottom: 8px;"><strong style="color: #475569;">موعد تسویه:</strong> <span style="font-weight: bold; color: #ea580c;">${dueDateStr}</span></div>
+              <div><strong style="color: #475569;">وضعیت تسویه فاکتور:</strong> <span style="font-weight: 900; color: ${invoice.remainingAmount === 0 ? '#15803d' : '#b91c1c'};">${invoice.remainingAmount === 0 ? '✔️ تسویه شده' : '⚠️ بدهکار'}</span></div>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          ${itemsRows}
-        </tbody>
-      </table>
+        </table>
 
-      <!-- Bottom Calculator & Terms -->
-      <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; font-size: 13px; align-items: start;">
-        <!-- Terms box -->
-        <div style="border: 1px dashed #cbd5e1; border-radius: 12px; padding: 18px; background-color: #fafafa; display: flex; flex-direction: column; min-height: 180px; justify-content: space-between; box-sizing: border-box;">
-          <div>
-            <h4 style="font-weight: 900; color: #1e3a8a; margin: 0 0 10px 0; font-size: 14px;">توضیحات و شرایط فروش:</h4>
-            <ul style="margin: 0; padding-right: 18px; line-height: 1.8; color: #475569; font-size: 11px;">
-              <li>کالای فروخته شده فقط تا ۷ روز با ارائه این فاکتور قابل تعویض می‌باشد.</li>
-              <li>در صورت گشوده شدن بسته‌بندی یا آسیب بابت جابجایی نادرست، تعویض کالا امکان‌پذیر نیست.</li>
-              <li>کلیه مبالغ فاکتور بر حسب تومان می‌باشد و در موعد مقرر باید تسویه گردد.</li>
-            </ul>
-          </div>
-          <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #f1f5f9; font-size: 11px; text-align: center; font-weight: bold; color: #4f46e5;">
-            تلفن تماس: ۰۹۱۲۳۴۵۶۷۸۹ | مدیریت: پویان
-          </div>
-        </div>
+        <!-- Table -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 25px; border: 1px solid #cbd5e1;">
+          <thead>
+            <tr style="background-color: #1e3a8a; color: #ffffff; text-align: right;">
+              <th style="padding: 12px 10px; font-weight: 900; text-align: center; width: 45px; border: 1px solid #1e3a8a; color: #ffffff;">ردیف</th>
+              <th style="padding: 12px 10px; font-weight: 900; text-align: right; border: 1px solid #1e3a8a; color: #ffffff;">نام شرح کالا / خدمات</th>
+              <th style="padding: 12px 10px; font-weight: 900; text-align: center; width: 75px; border: 1px solid #1e3a8a; color: #ffffff;">تعداد</th>
+              <th style="padding: 12px 10px; font-weight: 900; text-align: center; width: 140px; border: 1px solid #1e3a8a; color: #ffffff;">قیمت واحد (تومان)</th>
+              <th style="padding: 12px 10px; font-weight: 900; text-align: center; width: 150px; border: 1px solid #1e3a8a; color: #ffffff;">جمع کل (تومان)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsRows}
+          </tbody>
+        </table>
 
-        <!-- Price block -->
-        <div style="display: flex; flex-direction: column; gap: 10px; background-color: #f1f5f9; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; box-sizing: border-box;">
-          <div style="display: flex; justify-content: space-between; font-size: 12px;">
-            <span style="color: #64748b; font-weight: bold;">جمع کل اقلام:</span>
-            <span style="font-weight: bold; color: #334155;">${formatCurrency(invoice.items.reduce((acc, curr) => acc + (curr.qty * curr.unitPrice), 0))}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 12px; color: #b91c1c;">
-            <span style="font-weight: bold;">تخفیف فاکتور:</span>
-            <span style="font-weight: bold;">${formatCurrency(invoice.discountTotal)}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 900; border-top: 2px solid #cbd5e1; padding-top: 10px; color: #1e3a8a;">
-            <span>مبلغ قابل پرداخت:</span>
-            <span>${formatCurrency(invoice.totalAmount)}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 12px; color: #166534; font-weight: bold;">
-            <span>پرداخت نقدی / بیعانه:</span>
-            <span>${formatCurrency(invoice.paidAmount)}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 900; border-top: 1px dashed #cbd5e1; padding-top: 10px; color: #b91c1c;">
-            <span>مانده بدهکاری:</span>
-            <span>${formatCurrency(invoice.remainingAmount)}</span>
-          </div>
+        <!-- Bottom Calculator & Terms -->
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="width: 58%; vertical-align: top;">
+              <div style="border: 1px dashed #cbd5e1; border-radius: 12px; padding: 18px; background-color: #fafafa; display: flex; flex-direction: column; min-height: 160px; justify-content: space-between; box-sizing: border-box;">
+                <div>
+                  <h4 style="font-weight: 900; color: #1e3a8a; margin: 0 0 10px 0; font-size: 14px;">توضیحات و شرایط فروش:</h4>
+                  <ul style="margin: 0; padding-right: 18px; line-height: 1.8; color: #475569; font-size: 11px;">
+                    <li>کالای فروخته شده فقط تا ۷ روز با ارائه این فاکتور قابل تعویض می‌باشد.</li>
+                    <li>در صورت گشوده شدن بسته‌بندی یا آسیب بابت جابجایی نادرست، تعویض کالا امکان‌پذیر نیست.</li>
+                    <li>کلیه مبالغ فاکتور بر حسب تومان می‌باشد و در موعد مقرر باید تسویه گردد.</li>
+                  </ul>
+                </div>
+                <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #f1f5f9; font-size: 11px; text-align: center; font-weight: bold; color: #4f46e5;">
+                  تلفن تماس: ۰۹۱۲۳۴۵۶۷۸۹ | مدیریت: پویان
+                </div>
+              </div>
+            </td>
+            <td style="width: 4%;"></td>
+            <td style="width: 38%; vertical-align: top;">
+              <table style="width: 100%; background-color: #f1f5f9; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; font-size: 13px; border-collapse: separate; border-spacing: 0 10px;">
+                <tr>
+                  <td style="color: #64748b; font-weight: bold;">جمع کل اقلام:</td>
+                  <td style="font-weight: bold; color: #334155; text-align: left;">${formatCurrency(invoice.items.reduce((acc, curr) => acc + (curr.qty * curr.unitPrice), 0))}</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: bold; color: #b91c1c;">تخفیف فاکتور:</td>
+                  <td style="font-weight: bold; color: #b91c1c; text-align: left;">${formatCurrency(invoice.discountTotal)}</td>
+                </tr>
+                <tr style="border-top: 2px solid #cbd5e1;">
+                  <td style="font-weight: 900; color: #1e3a8a; padding-top: 8px;">مبلغ قابل پرداخت:</td>
+                  <td style="font-weight: 900; color: #1e3a8a; text-align: left; padding-top: 8px;">${formatCurrency(invoice.totalAmount)}</td>
+                </tr>
+                <tr>
+                  <td style="color: #166534; font-weight: bold;">پرداخت / بیعانه:</td>
+                  <td style="color: #166534; font-weight: bold; text-align: left;">${formatCurrency(invoice.paidAmount)}</td>
+                </tr>
+                <tr style="border-top: 1px dashed #cbd5e1;">
+                  <td style="font-weight: 900; color: #b91c1c; padding-top: 8px;">مانده بدهکاری:</td>
+                  <td style="font-weight: 900; color: #b91c1c; text-align: left; padding-top: 8px;">${formatCurrency(invoice.remainingAmount)}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Signatures -->
+        <table style="width: 100%; margin-top: 50px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+          <tr>
+            <td style="width: 50%; text-align: center;">
+              <p style="color: #475569; font-weight: bold; margin-bottom: 35px; margin-top: 0;">مهر و امضاء مدیریت فروشگاه</p>
+              <div style="font-weight: 900; color: #1e3a8a; font-size: 14px;">پلاستیک‌بان (پویان)</div>
+            </td>
+            <td style="width: 50%; text-align: center;">
+              <p style="color: #475569; font-weight: bold; margin-bottom: 35px; margin-top: 0;">مهر و امضاء خریدار محترم</p>
+              <div style="font-weight: bold; color: #475569; font-size: 14px;">${invoice.customerName || 'مشتری گذری'}</div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Footer Message -->
+        <div style="text-align: center; margin-top: 40px; font-size: 11px; font-weight: bold; color: #94a3b8; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
+          صاحب امضاء فاکتور فوق مسئول قانونی تحویل صحت کالا می‌باشد. از خرید شما صمیمانه سپاسگزاریم.
         </div>
       </div>
-
-      <!-- Signatures -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 60px; font-size: 13px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 25px;">
-        <div>
-          <p style="color: #475569; font-weight: bold; margin-bottom: 40px; margin-top: 0;">مهر و امضاء مدیریت فروشگاه</p>
-          <div style="font-weight: 900; color: #1e3a8a; font-size: 14px;">پلاستیک‌بان (پویان)</div>
-        </div>
-        <div>
-          <p style="color: #475569; font-weight: bold; margin-bottom: 40px; margin-top: 0;">مهر و امضاء خریدار محترم</p>
-          <div style="font-weight: bold; color: #475569; font-size: 14px;">${invoice.customerName || 'مشتری گذری'}</div>
-        </div>
-      </div>
-
-      <!-- Footer Message -->
-      <div style="text-align: center; margin-top: 50px; font-size: 11px; font-weight: bold; color: #94a3b8; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
-        صاحب امضاء فاکتور فوق مسئول قانونی تحویل صحت کالا می‌باشد. از خرید شما صمیمانه سپاسگزاریم.
-      </div>
-    </div>
+    </body>
+    </html>
   `;
-  
-  document.body.appendChild(container);
-  
-  const opt = {
-    margin: [8, 8, 8, 8] as [number, number, number, number],
-    filename: `${filename}.pdf`,
-    image: { type: 'jpeg' as const, quality: 0.98 },
-    html2canvas: { 
-      scale: 2, 
-      useCORS: true,
-      letterRendering: true,
-      scrollX: 0,
-      scrollY: 0
-    },
-    jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
-  };
-  
-  // Choose html2pdf to build and download the PDF
-  html2pdf()
-    .from(container)
-    .set(opt)
-    .save()
-    .then(() => {
-      document.body.removeChild(container);
-    })
-    .catch((err: any) => {
-      console.error('PDF Generation Error:', err);
-      // Fallback to simple title change and printing
-      document.body.removeChild(container);
-      const originalTitle = document.title;
-      document.title = filename;
-      window.print();
-      document.title = originalTitle;
-    });
+
+  doc.open();
+  doc.write(htmlContent);
+  doc.close();
+
+  // Wait briefly for content to render, then export
+  setTimeout(() => {
+    const opt = {
+      margin: [10, 10, 10, 10] as [number, number, number, number],
+      filename: `${filename}.pdf`,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true,
+        letterRendering: true,
+        scrollX: 0,
+        scrollY: 0,
+        backgroundColor: '#ffffff'
+      },
+      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+    };
+
+    html2pdf()
+      .from(doc.body)
+      .set(opt)
+      .save()
+      .then(() => {
+        document.body.removeChild(iframe);
+      })
+      .catch((err: any) => {
+        console.error('PDF Generation Error:', err);
+        document.body.removeChild(iframe);
+        // Fallback to simple printing
+        const originalTitle = document.title;
+        document.title = filename;
+        window.print();
+        document.title = originalTitle;
+      });
+  }, 450);
 };
 
 /**
