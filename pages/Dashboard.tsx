@@ -1,16 +1,97 @@
 
 // Add React import to fix 'Cannot find namespace React' errors
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { db } from '../db';
 import { Todo } from '../types';
 import { formatCurrency, getStockStatusColor } from '../utils';
+import { 
+  ResponsiveContainer, 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend 
+} from 'recharts';
+
+const jalaliMonths = [
+  'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+  'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+];
+
+const getJalaliParts = (date: Date) => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-u-ca-persian', {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    });
+    const parts = formatter.formatToParts(date);
+    return {
+      year: parseInt(parts.find(p => p.type === 'year')?.value || '0'),
+      month: parseInt(parts.find(p => p.type === 'month')?.value || '0'),
+      day: parseInt(parts.find(p => p.type === 'day')?.value || '0'),
+    };
+  } catch (e) {
+    return {
+      year: date.getFullYear() - 621,
+      month: ((date.getMonth() + 9) % 12) + 1,
+      day: date.getDate()
+    };
+  }
+};
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/95 dark:bg-slate-950/98 backdrop-blur-md border border-slate-700/50 p-4 rounded-2xl shadow-xl text-white text-xs font-bold space-y-2 text-right">
+        <p className="text-slate-300 font-extrabold border-b border-slate-700/50 pb-1.5 mb-2">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex justify-between items-center gap-6 text-right">
+            <span className="flex items-center gap-1.5 font-black" style={{ color: entry.color }}>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+              {entry.name}:
+            </span>
+            <span className="font-mono text-slate-100">{formatCurrency(entry.value)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+const formatYValue = (value: number) => {
+  if (value === 0) return '۰';
+  if (value >= 1000000) {
+    return (value / 1000000).toLocaleString('fa-IR') + ' م';
+  }
+  if (value >= 1000) {
+    return (value / 1000).toLocaleString('fa-IR') + ' ه';
+  }
+  return value.toLocaleString('fa-IR');
+};
 
 const Dashboard: React.FC = () => {
   const products = db.getProducts();
   const invoices = db.getInvoices();
   const customers = db.getCustomers();
+  const purchases = db.getPurchases();
   const [todos, setTodos] = useState<Todo[]>(db.getTodos());
   const [newTodo, setNewTodo] = useState('');
+
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const checkDark = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    checkDark();
+    
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Stats calculation
   const totalSales = invoices.reduce((acc, inv) => acc + (inv.status === 'ACTIVE' ? inv.totalAmount : 0), 0);
@@ -25,6 +106,66 @@ const Dashboard: React.FC = () => {
 
   const lowStockProducts = products.filter(p => p.quantity <= p.lowStockThreshold);
   const topDebtors = [...customers].sort((a, b) => a.balance - b.balance).slice(0, 5);
+
+  const chartData = useMemo(() => {
+    const currentJalali = getJalaliParts(new Date());
+    const monthsData = [];
+    let currYear = currentJalali.year;
+    let currMonth = currentJalali.month;
+
+    for (let i = 0; i < 12; i++) {
+      monthsData.push({
+        year: currYear,
+        month: currMonth,
+        name: `${jalaliMonths[currMonth - 1]} ${currYear % 100}`,
+        sales: 0,
+        purchases: 0
+      });
+
+      currMonth--;
+      if (currMonth === 0) {
+        currMonth = 12;
+        currYear--;
+      }
+    }
+
+    const months = monthsData.reverse();
+
+    // Accumulate invoices (sales)
+    invoices.forEach(inv => {
+      if (inv.status !== 'ACTIVE') return;
+      const jalali = getJalaliParts(new Date(inv.date));
+      const match = months.find(m => m.year === jalali.year && m.month === jalali.month);
+      if (match) {
+        match.sales += inv.totalAmount;
+      }
+    });
+
+    // Accumulate purchases
+    purchases.forEach(p => {
+      const jalali = getJalaliParts(new Date(p.date));
+      const match = months.find(m => m.year === jalali.year && m.month === jalali.month);
+      if (match) {
+        match.purchases += p.totalAmount;
+      }
+    });
+
+    return months;
+  }, [invoices, purchases]);
+
+  const totalSalesOfYear = useMemo(() => chartData.reduce((acc, curr) => acc + curr.sales, 0), [chartData]);
+  const totalPurchasesOfYear = useMemo(() => chartData.reduce((acc, curr) => acc + curr.purchases, 0), [chartData]);
+
+  const currentJalali = useMemo(() => getJalaliParts(new Date()), []);
+  const currentMonthName = useMemo(() => jalaliMonths[currentJalali.month - 1] || 'جاری', [currentJalali]);
+
+  const currentMonthData = useMemo(() => {
+    return chartData[chartData.length - 1];
+  }, [chartData]);
+
+  const currentMonthSales = currentMonthData ? currentMonthData.sales : 0;
+  const currentMonthPurchases = currentMonthData ? currentMonthData.purchases : 0;
+  const currentMonthNetProfit = currentMonthSales - currentMonthPurchases;
 
   const handleAddTodo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +190,9 @@ const Dashboard: React.FC = () => {
     dateStyle: 'full' 
   }).format(new Date());
 
+  const gridColor = isDark ? '#334155' : '#e2e8f0';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
       
@@ -65,7 +209,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Top Cards - Responsive Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 md:gap-8">
         <div className="group bg-gradient-to-br from-blue-600 to-blue-800 p-8 rounded-[2.5rem] text-white shadow-xl shadow-blue-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
           <div className="flex justify-between items-start">
             <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest opacity-80">مجموع فروش کل</p>
@@ -87,6 +231,18 @@ const Dashboard: React.FC = () => {
           <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest opacity-60">سود خالص</span>
             <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">Net</span>
+          </div>
+        </div>
+
+        <div className="group bg-gradient-to-br from-purple-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-purple-500/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl">
+          <div className="flex justify-between items-start">
+            <p className="text-purple-100 text-[10px] font-black uppercase tracking-widest opacity-80">سود خالص ماه جاری ({currentMonthName})</p>
+            <span className="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">📊</span>
+          </div>
+          <h3 className="text-3xl font-black mt-6 tracking-tight font-mono">{formatCurrency(currentMonthNetProfit)}</h3>
+          <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">تفاوت کل خرید و فروش</span>
+            <span className="text-[10px] font-black bg-white/20 px-3 py-1 rounded-lg uppercase tracking-widest">{currentMonthName}</span>
           </div>
         </div>
 
@@ -114,6 +270,84 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Monthly Financial Chart Section */}
+      <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-sm p-6 md:p-8 transition-all hover:shadow-lg">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 border-b border-slate-100 dark:border-slate-800 pb-6">
+          <div>
+            <h4 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-3">
+              <span className="text-xl">📈</span>
+              گزارش عملکرد مالی ماهانه
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-1">مقایسه فروش و خرید در بازه ۱۲ ماه گذشته (ریالی)</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs font-black">
+            <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-950/40 px-4 py-2 rounded-2xl border border-blue-100/50 dark:border-blue-900/30">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+              <span className="text-blue-700 dark:text-blue-300">مجموع فروش ۱۲ ماه: <span className="font-mono">{formatCurrency(totalSalesOfYear)}</span></span>
+            </div>
+            <div className="flex items-center gap-2 bg-rose-50 dark:bg-rose-950/40 px-4 py-2 rounded-2xl border border-rose-100/50 dark:border-rose-900/30">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+              <span className="text-rose-700 dark:text-rose-300">مجموع خرید ۱۲ ماه: <span className="font-mono">{formatCurrency(totalPurchasesOfYear)}</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full h-[320px] md:h-[350px] direction-ltr">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+              <XAxis 
+                dataKey="name" 
+                stroke={textColor} 
+                fontSize={11} 
+                fontWeight="bold"
+                tickLine={false}
+                axisLine={false}
+                dy={10}
+              />
+              <YAxis 
+                stroke={textColor} 
+                fontSize={11} 
+                fontWeight="bold"
+                tickFormatter={formatYValue}
+                tickLine={false}
+                axisLine={false}
+                dx={-10}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend 
+                verticalAlign="top" 
+                height={36} 
+                iconType="circle"
+                iconSize={8}
+                formatter={(value) => <span className="text-xs font-black text-slate-700 dark:text-slate-300 px-1">{value}</span>}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="sales" 
+                name="مجموع فروش" 
+                stroke="#3b82f6" 
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 2, fill: isDark ? '#0f172a' : '#ffffff' }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="purchases" 
+                name="مجموع خرید" 
+                stroke="#f43f5e" 
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 2, fill: isDark ? '#0f172a' : '#ffffff' }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10">
         
@@ -225,7 +459,7 @@ const Dashboard: React.FC = () => {
                     >
                       {todo.completed && <span className="text-lg font-black">✓</span>}
                     </button>
-                    <span className={`text-base md:text-lg font-bold truncate dark:text-slate-300 ${todo.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                    <span className={`text-base md:text-lg font-bold truncate ${todo.completed ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>
                       {todo.text}
                     </span>
                   </div>
