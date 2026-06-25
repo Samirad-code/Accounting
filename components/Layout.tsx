@@ -15,10 +15,41 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => 
   // Real-time status tracker for the UI
   const [cloudStatus, setCloudStatus] = useState(db.getStatus());
   
+  // PWA Installation state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+  
   useEffect(() => {
     const unsub = db.subscribe(() => setCloudStatus(db.getStatus()));
-    return unsub;
+    
+    // Intercept standard PWA install prompt
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // If app is already running in standalone (installed) mode, hide the button
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setShowInstallBtn(false);
+    }
+
+    return () => {
+      unsub();
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
   }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User install choice: ${outcome}`);
+    setDeferredPrompt(null);
+    setShowInstallBtn(false);
+  };
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
@@ -102,6 +133,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activePage, onNavigate }) => 
             </button>
           ))}
         </nav>
+
+        {showInstallBtn && (
+          <div className="mx-4 mb-4 p-4 bg-gradient-to-br from-slate-800/80 to-slate-900/90 rounded-2xl border border-blue-500/20 text-right animate-in fade-in slide-in-from-bottom-5 duration-300">
+            <p className="text-xs font-black text-blue-400">📲 نصب روی کامپیوتر / موبایل</p>
+            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed font-bold">پلاستیک‌بان را مانند یک نرم‌افزار اختصاصی نصب کرده و به‌صورت آفلاین و سریع اجرا کنید.</p>
+            <button 
+              onClick={handleInstallClick}
+              className="mt-3 w-full bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs py-2 px-4 rounded-xl transition-all shadow-md shadow-blue-600/20 cursor-pointer"
+            >
+              نصب نرم‌افزار 📥
+            </button>
+          </div>
+        )}
+        
         <div className="p-6 border-t border-slate-800/50 text-[10px] text-center text-slate-500 font-bold uppercase tracking-widest">
           <p>نسخه ۱.۱.۰ ابری • پلاستیک‌بان</p>
         </div>

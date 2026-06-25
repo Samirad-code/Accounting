@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Premium Gradient Background -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a" />
+      <stop offset="50%" stop-color="#1e40af" />
+      <stop offset="100%" stop-color="#0d9488" />
+    </linearGradient>
+
+    <!-- Glimmer Gradient for Icon Shapes -->
+    <linearGradient id="icon-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#ccfbf1" />
+    </linearGradient>
+
+    <!-- Subtle Drop Shadow -->
+    <filter id="drop-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <filterBlur stdDeviation="12" />
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#0f172a" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Rounded App Icon Base (Maskable Safe Area Compatible) -->
+  <rect width="512" height="512" rx="112" fill="url(#bg-grad)" />
+
+  <!-- Outer Safe Area Guide Ring (Very Subtle) -->
+  <rect x="40" y="40" width="432" height="432" rx="92" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="4" />
+
+  <!-- Main Symbol Container with Shadow -->
+  <g filter="url(#drop-shadow)" transform="translate(128, 110)">
+    <!-- Sleek Geometric Diamond/Roll structure representing Plastic Packaging Shield and Accounting Safety -->
+    <!-- Front Face -->
+    <polygon points="128,0 236,70 128,260 20,70" fill="url(#icon-grad)" opacity="0.95" />
+    
+    <!-- Left Shading -->
+    <polygon points="128,0 128,260 20,70" fill="#0ea5e9" opacity="0.3" />
+    
+    <!-- Top Caps representing rolled plastic layers/sheets -->
+    <polygon points="128,0 178,32 128,64 78,32" fill="#ffffff" opacity="0.8" />
+    <path d="M 128 32 L 210 85 M 128 32 L 46 85" stroke="#0f172a" stroke-width="2" stroke-opacity="0.15" stroke-linecap="round" />
+
+    <!-- Sleek Inner Accent Core (Safe Shield) -->
+    <polygon points="128,45 190,85 128,210 66,85" fill="#38bdf8" opacity="0.7" />
+    
+    <!-- Inner central diamond reflecting accounting precision -->
+    <polygon points="128,70 160,92 128,155 96,92" fill="#ffffff" />
+    
+    <!-- Decorative Connection Line representing continuous rolls/supplies -->
+    <path d="M 128,260 L 128,285" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />
+    <circle cx="128" cy="285" r="8" fill="#ffffff" />
+  </g>
+
+  <!-- Glowing Dots representing secure digital ledger & accounting balance -->
+  <circle cx="120" cy="120" r="14" fill="#34d399" opacity="0.9" />
+  <circle cx="392" cy="392" r="14" fill="#38bdf8" opacity="0.9" />
+</svg>
