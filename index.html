@@ -10,30 +10,31 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="/icon.svg">
     <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap" rel="stylesheet">
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "firebase/app": "https://esm.sh/firebase@10.8.1/app",
-    "firebase/firestore": "https://esm.sh/firebase@10.8.1/firestore",
-    "firebase/": "https://esm.sh/firebase@^12.9.0/",
-    "xlsx": "https://esm.sh/xlsx@0.18.5"
-  }
-}
-</script>
 </head>
 <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('PWA Service Worker registered:', reg.scope))
-            .catch(err => console.error('PWA Service Worker registration failed:', err));
-        });
+        const isDev = window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1' || 
+                      window.location.hostname.includes('-dev-') ||
+                      window.location.hostname.includes('.run.app');
+        if (isDev) {
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+              registration.unregister().then(() => {
+                console.log('Dev Mode: Stale Service Worker unregistered successfully.');
+              });
+            }
+          });
+        } else {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+              .then(reg => console.log('PWA Service Worker registered:', reg.scope))
+              .catch(err => console.error('PWA Service Worker registration failed:', err));
+          });
+        }
       }
     </script>
 </body>

@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { db } from '../db';
-import { Customer, Payment, PaymentMethod, Invoice } from '../types';
+import { Customer, Payment, PaymentMethod, Invoice, Reminder, ReminderStatus } from '../types';
 import { formatCurrency, formatJalali } from '../utils';
 import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import JalaliDatePicker from '../components/JalaliDatePicker';
 
 const Customers: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>(db.getCustomers());
@@ -16,9 +17,43 @@ const Customers: React.FC = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
 
+  // Reminder manual state
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [reminderDueDate, setReminderDueDate] = useState<string>(new Date().toISOString());
+  const [reminderMessage, setReminderMessage] = useState<string>('');
+  const [reminderInvoiceId, setReminderInvoiceId] = useState<string>('');
+
   // Form states
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', note: '' });
   const [paymentData, setPaymentData] = useState({ amount: 0, method: PaymentMethod.CASH, note: '' });
+
+  const customerInvoices = useMemo(() => {
+    if (!selectedCustomer) return [];
+    return db.getInvoices().filter(inv => inv.customerId === selectedCustomer.id && inv.status === 'ACTIVE');
+  }, [selectedCustomer]);
+
+  const handleReminderSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCustomer) return;
+
+    const linkedInvoice = db.getInvoices().find(inv => inv.id === reminderInvoiceId);
+
+    const newReminder: Reminder = {
+      id: 'rem-' + Date.now(),
+      customerId: selectedCustomer.id,
+      customerName: selectedCustomer.name,
+      dueDate: reminderDueDate,
+      invoiceId: linkedInvoice ? linkedInvoice.id : undefined,
+      message: reminderMessage || (linkedInvoice ? `پیگیری فاکتور ${linkedInvoice.invoiceNumber}` : `پیگیری یادآوری مشتری ${selectedCustomer.name}`),
+      status: ReminderStatus.PENDING
+    };
+
+    db.addReminder(newReminder);
+    setIsReminderModalOpen(false);
+    setReminderInvoiceId('');
+    setReminderMessage('');
+    alert('✅ یادآور با موفقیت ثبت شد.');
+  };
 
   const filteredCustomers = customers.filter(c => 
     c.name.includes(searchTerm) || c.phone.includes(searchTerm)
@@ -238,13 +273,27 @@ const Customers: React.FC = () => {
               </div>
 
               <div className="p-8 space-y-8">
-                <button 
-                  onClick={() => setIsPaymentModalOpen(true)}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all shadow-xl shadow-emerald-900/40 active:scale-[0.98]"
-                >
-                  <span className="text-2xl">📥</span>
-                  <span>ثبت دریافتی جدید</span>
-                </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => setIsPaymentModalOpen(true)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-xl shadow-emerald-900/40 active:scale-[0.98] cursor-pointer"
+                  >
+                    <span className="text-xl">📥</span>
+                    <span>ثبت دریافتی جدید</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setReminderInvoiceId('');
+                      setReminderDueDate(new Date().toISOString());
+                      setReminderMessage('');
+                      setIsReminderModalOpen(true);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-xl shadow-blue-950/40 active:scale-[0.98] cursor-pointer"
+                  >
+                    <span className="text-xl">🔔</span>
+                    <span>ثبت یادآوری</span>
+                  </button>
+                </div>
 
                 <div className="space-y-6">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -402,6 +451,86 @@ const Customers: React.FC = () => {
                 className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-emerald-500/30 hover:bg-emerald-700 transition-all active:scale-[0.98]"
               >
                 تایید و ثبت دریافتی
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Record Reminder Modal */}
+      {isReminderModalOpen && selectedCustomer && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-300">
+            <div className="bg-blue-600 text-white p-8 font-black text-xl flex justify-between items-center">
+              <span>ثبت یادآوری برای مشتری</span>
+              <button 
+                onClick={() => setIsReminderModalOpen(false)}
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors cursor-pointer text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleReminderSubmit} className="p-8 space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30 mb-2">
+                <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">مشتری:</p>
+                <p className="text-lg font-black text-blue-900 dark:text-blue-100">{selectedCustomer.name}</p>
+              </div>
+
+              {customerInvoices.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">انتخاب فاکتور مرجع (اختیاری):</label>
+                  <select 
+                    className="w-full p-4 border-2 border-slate-50 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-800/50 dark:text-white focus:border-blue-500 outline-none transition-all font-bold text-xs" 
+                    value={reminderInvoiceId}
+                    onChange={(e) => {
+                      const invId = e.target.value;
+                      setReminderInvoiceId(invId);
+                      if (invId) {
+                        const inv = customerInvoices.find(i => i.id === invId);
+                        if (inv) {
+                          setReminderMessage(`پیگیری سررسید فاکتور ${inv.invoiceNumber} به مبلغ ${formatCurrency(inv.totalAmount)}`);
+                        }
+                      } else {
+                        setReminderMessage('');
+                      }
+                    }}
+                  >
+                    <option value="">-- بدون فاکتور مرجع --</option>
+                    {customerInvoices.map(inv => (
+                      <option key={inv.id} value={inv.id}>
+                        فاکتور #{inv.invoiceNumber} | تاریخ {formatJalali(inv.date)} | مانده {formatCurrency(inv.remainingAmount)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">تاریخ سررسید یادآوری:</label>
+                <JalaliDatePicker 
+                  label="" 
+                  value={reminderDueDate} 
+                  onChange={(val) => setReminderDueDate(val)} 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">پیام / یادداشت یادآوری:</label>
+                <textarea 
+                  required
+                  className="w-full p-4 border-2 border-slate-50 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-800/50 dark:text-white focus:border-blue-500 outline-none transition-all font-bold text-sm" 
+                  rows={3} 
+                  value={reminderMessage} 
+                  onChange={e => setReminderMessage(e.target.value)} 
+                  placeholder="مثال: هماهنگی جهت تسویه بدهی یا تحویل فیش بانکی..." 
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/30 hover:bg-blue-700 transition-all active:scale-[0.98] cursor-pointer"
+              >
+                ثبت یادآوری
               </button>
             </form>
           </div>

@@ -51,12 +51,21 @@ class Database {
 
   private loadLocal() {
     try {
-      const saved = localStorage.getItem('plasticban_cloud_cache');
+      const saved = localStorage.getItem('plasticban_cloud_cache') || 
+                    localStorage.getItem('plasticban_db_v2') || 
+                    localStorage.getItem('plasticban_db');
       if (saved) {
-        this.data = JSON.parse(saved);
-      } else {
-        const oldSaved = localStorage.getItem('plasticban_db_v2') || localStorage.getItem('plasticban_db');
-        if (oldSaved) this.data = JSON.parse(oldSaved);
+        const parsed = JSON.parse(saved);
+        this.data = {
+          products: parsed.products || [],
+          purchases: parsed.purchases || [],
+          customers: parsed.customers || [],
+          invoices: parsed.invoices || [],
+          payments: parsed.payments || [],
+          reminders: parsed.reminders || [],
+          todos: parsed.todos || [],
+          categories: parsed.categories || []
+        };
       }
     } catch (e) {
       console.error("Cache load error", e);
@@ -361,16 +370,41 @@ class Database {
   }
 
   createInvoice(invoice: Invoice) {
+    if (!this.data.categories.some(c => c.name === 'ثبت نشده')) {
+      this.addCategory('ثبت نشده', 30, 15);
+    }
+
     invoice.items.forEach(item => {
+      if (!item.productId && item.productName) {
+        let product = this.data.products.find(p => p.name.trim().toLowerCase() === item.productName.trim().toLowerCase());
+        if (!product) {
+          product = {
+            id: 'p-man-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+            name: item.productName,
+            category: 'ثبت نشده',
+            quantity: 0,
+            avgCost: item.costBasisAtSale || 0,
+            retailPrice: item.unitPrice,
+            wholesalePrice: Math.round((item.costBasisAtSale || 0) * 1.15) || item.unitPrice,
+            lowStockThreshold: 5,
+            isActive: true,
+            createdAt: new Date().toISOString()
+          };
+          this.data.products.push(product);
+          this.pushDoc('products', product.id, product);
+        }
+        item.productId = product.id;
+      }
+
       if (item.productId) {
         const product = this.data.products.find(p => p.id === item.productId);
         if (product) {
           product.quantity -= item.qty;
-          item.costBasisAtSale = product.avgCost;
+          if (!item.costBasisAtSale) {
+            item.costBasisAtSale = product.avgCost;
+          }
           this.pushDoc('products', product.id, product);
         }
-      } else {
-        item.costBasisAtSale = 0;
       }
     });
 
@@ -405,6 +439,10 @@ class Database {
     if (index === -1) throw new Error("فاکتور یافت نشد");
     const oldInvoice = this.data.invoices[index];
     
+    if (!this.data.categories.some(c => c.name === 'ثبت نشده')) {
+      this.addCategory('ثبت نشده', 30, 15);
+    }
+
     oldInvoice.items.forEach(oldItem => {
       if (oldItem.productId) {
         const product = this.data.products.find(p => p.id === oldItem.productId);
@@ -418,15 +456,36 @@ class Database {
     }
 
     updatedInvoice.items.forEach(newItem => {
+      if (!newItem.productId && newItem.productName) {
+        let product = this.data.products.find(p => p.name.trim().toLowerCase() === newItem.productName.trim().toLowerCase());
+        if (!product) {
+          product = {
+            id: 'p-man-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+            name: newItem.productName,
+            category: 'ثبت نشده',
+            quantity: 0,
+            avgCost: newItem.costBasisAtSale || 0,
+            retailPrice: newItem.unitPrice,
+            wholesalePrice: Math.round((newItem.costBasisAtSale || 0) * 1.15) || newItem.unitPrice,
+            lowStockThreshold: 5,
+            isActive: true,
+            createdAt: new Date().toISOString()
+          };
+          this.data.products.push(product);
+          this.pushDoc('products', product.id, product);
+        }
+        newItem.productId = product.id;
+      }
+
       if (newItem.productId) {
         const product = this.data.products.find(p => p.id === newItem.productId);
         if (product) {
           product.quantity -= newItem.qty;
-          newItem.costBasisAtSale = product.avgCost;
+          if (!newItem.costBasisAtSale) {
+            newItem.costBasisAtSale = product.avgCost;
+          }
           this.pushDoc('products', product.id, product);
         }
-      } else {
-        newItem.costBasisAtSale = 0;
       }
     });
 
@@ -525,6 +584,27 @@ class Database {
   deleteTodo(id: string) {
     this.data.todos = this.data.todos.filter(t => t.id !== id);
     this.deleteDocCloud('todos', id);
+    this.notify();
+  }
+
+  addReminder(reminder: Reminder) {
+    this.data.reminders.push(reminder);
+    this.pushDoc('reminders', reminder.id, reminder);
+    this.notify();
+  }
+
+  updateReminderStatus(id: string, status: ReminderStatus) {
+    const reminder = this.data.reminders.find(r => r.id === id);
+    if (reminder) {
+      reminder.status = status;
+      this.pushDoc('reminders', id, reminder);
+      this.notify();
+    }
+  }
+
+  deleteReminder(id: string) {
+    this.data.reminders = this.data.reminders.filter(r => r.id !== id);
+    this.deleteDocCloud('reminders', id);
     this.notify();
   }
 

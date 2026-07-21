@@ -42,6 +42,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Bypass caching in development environments to avoid stale code
+  const isDev = reqUrl.hostname === 'localhost' || 
+                reqUrl.hostname === '127.0.0.1' || 
+                reqUrl.hostname.includes('-dev-') ||
+                reqUrl.hostname.includes('.run.app');
+  if (isDev) {
+    return;
+  }
+
   // Skip Firebase Firestore sync websocket/polling or other cloud functions
   if (reqUrl.hostname.includes('firestore.googleapis.com') || reqUrl.hostname.includes('firebase')) {
     return;

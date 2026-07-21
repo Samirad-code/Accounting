@@ -25,7 +25,7 @@ const Reports: React.FC = () => {
     date: string;
     type: InvoiceType;
     customerId: string;
-    items: { productId: string; manualName?: string; qty: number; unitPrice: number }[];
+    items: { productId: string; manualName?: string; qty: number; unitPrice: number; purchasePrice?: number }[];
     paidAmount: number;
     discountTotal: number;
     paymentMethod: PaymentMethod;
@@ -34,7 +34,7 @@ const Reports: React.FC = () => {
     date: new Date().toISOString(),
     type: InvoiceType.RETAIL,
     customerId: '',
-    items: [{ productId: '', qty: 1, unitPrice: 0 }],
+    items: [{ productId: '', qty: 1, unitPrice: 0, purchasePrice: 0 }],
     paidAmount: 0,
     discountTotal: 0,
     paymentMethod: PaymentMethod.CASH,
@@ -152,7 +152,8 @@ const Reports: React.FC = () => {
         productId: i.productId || '',
         manualName: i.productId ? undefined : i.productName,
         qty: i.qty,
-        unitPrice: i.unitPrice
+        unitPrice: i.unitPrice,
+        purchasePrice: i.costBasisAtSale || 0
       })),
       paidAmount: inv.paidAmount,
       discountTotal: inv.discountTotal,
@@ -172,12 +173,19 @@ const Reports: React.FC = () => {
       if (value.startsWith('MANUAL:')) {
         item.productId = '';
         item.manualName = value.replace('MANUAL:', '');
+        item.purchasePrice = 0;
+        item.unitPrice = 0;
       } else {
         const prod = products.find(p => p.id === value);
         item.productId = value;
         item.manualName = undefined;
+        item.purchasePrice = prod?.avgCost || 0;
         item.unitPrice = newInv.type === InvoiceType.RETAIL ? (prod?.retailPrice || 0) : (prod?.wholesalePrice || 0);
       }
+    } else if (field === 'purchasePrice') {
+      const pPrice = parseFloat(value) || 0;
+      item.purchasePrice = pPrice;
+      item.unitPrice = Math.round(pPrice * 1.30);
     } else {
       (item as any)[field] = value;
     }
@@ -202,7 +210,7 @@ const Reports: React.FC = () => {
             qty: item.qty,
             unitPrice: item.unitPrice,
             discount: 0,
-            costBasisAtSale: prod.avgCost 
+            costBasisAtSale: item.purchasePrice !== undefined ? item.purchasePrice : prod.avgCost 
           };
         } else {
           return {
@@ -210,7 +218,7 @@ const Reports: React.FC = () => {
             qty: item.qty,
             unitPrice: item.unitPrice,
             discount: 0,
-            costBasisAtSale: 0
+            costBasisAtSale: item.purchasePrice || 0
           };
         }
       });
@@ -285,44 +293,64 @@ const Reports: React.FC = () => {
           </div>
 
           <div className="border dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900 overflow-visible">
-            <div className="overflow-x-auto min-h-[300px]">
-              <table className="w-full text-right">
+            <div className="overflow-visible min-h-[350px]">
+              <table className="w-full text-right overflow-visible">
                 <thead className="bg-slate-800 text-white text-xs">
                   <tr>
                     <th className="p-3">انتخاب کالا / ثبت دستی</th>
                     <th className="p-3 w-24 text-center">تعداد</th>
-                    <th className="p-3 text-center">قیمت واحد</th>
+                    <th className="p-3 text-center w-36">قیمت خرید</th>
+                    <th className="p-3 text-center w-36">قیمت فروش واحد</th>
                     <th className="p-3 text-center">جمع</th>
                     <th className="p-3 w-12"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y dark:divide-slate-800">
-                  {newInv.items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td className="p-3">
-                        <SearchableProductSelect 
-                          value={item.productId || `MANUAL:${item.manualName || ''}`}
-                          onChange={val => handleItemChange(idx, 'productId', val)}
-                          products={products}
-                        />
-                      </td>
-                      <td className="p-3">
-                        <input type="number" min="1" className="w-full p-2 border dark:border-slate-700 rounded-lg text-center bg-white dark:bg-slate-800 dark:text-white outline-none" value={item.qty} onChange={e => handleItemChange(idx, 'qty', parseInt(e.target.value) || 0)} />
-                      </td>
-                      <td className="p-3">
-                        <input type="number" className="w-full p-2 border dark:border-slate-700 rounded-lg text-center font-mono bg-white dark:bg-slate-800 dark:text-white outline-none" value={item.unitPrice} onChange={e => handleItemChange(idx, 'unitPrice', parseInt(e.target.value) || 0)} />
-                      </td>
-                      <td className="p-3 text-center font-bold text-xs">{formatCurrency(item.qty * item.unitPrice)}</td>
-                      <td className="p-3 text-center">
-                        <button type="button" onClick={() => setNewInv({...newInv, items: newInv.items.filter((_, i) => i !== idx)})} className="text-red-500 font-bold">×</button>
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y dark:divide-slate-800 overflow-visible">
+                  {newInv.items.map((item, idx) => {
+                    const prod = products.find(p => p.id === item.productId);
+                    return (
+                      <tr key={idx} className="relative hover:z-50 focus-within:z-50 transition-all">
+                        <td className="p-3">
+                          <SearchableProductSelect 
+                            value={item.productId || `MANUAL:${item.manualName || ''}`}
+                            onChange={val => handleItemChange(idx, 'productId', val)}
+                            products={products}
+                          />
+                          {item.manualName !== undefined && <div className="text-[10px] text-orange-500 mt-1 font-bold">⚠️ کالای دستی (خارج از انبار)</div>}
+                        </td>
+                        <td className="p-3">
+                          <input type="number" min="0.01" step="any" className="w-full p-2 border dark:border-slate-700 rounded-lg text-center bg-white dark:bg-slate-800 dark:text-white outline-none" value={item.qty} onChange={e => handleItemChange(idx, 'qty', parseFloat(e.target.value) || 0)} />
+                        </td>
+                        <td className="p-3">
+                          {item.manualName !== undefined ? (
+                            <input 
+                              type="number" 
+                              className="w-full p-2 border border-orange-300 dark:border-orange-900 rounded-lg text-center font-mono bg-orange-50/50 dark:bg-orange-950/20 dark:text-white outline-none" 
+                              placeholder="قیمت خرید..."
+                              value={item.purchasePrice || ''} 
+                              onChange={e => handleItemChange(idx, 'purchasePrice', parseFloat(e.target.value) || 0)} 
+                            />
+                          ) : (
+                            <div className="text-center font-mono text-xs text-slate-400 dark:text-slate-500">
+                              {prod ? formatCurrency(prod.avgCost) : '---'}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <input type="number" className="w-full p-2 border dark:border-slate-700 rounded-lg text-center font-mono bg-white dark:bg-slate-800 dark:text-white outline-none" value={item.unitPrice} onChange={e => handleItemChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)} />
+                        </td>
+                        <td className="p-3 text-center font-bold text-xs font-mono">{formatCurrency(item.qty * item.unitPrice)}</td>
+                        <td className="p-3 text-center">
+                          <button type="button" onClick={() => setNewInv({...newInv, items: newInv.items.filter((_, i) => i !== idx)})} className="text-red-500 font-bold text-xl">×</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-700 rounded-b-2xl">
-              <button type="button" onClick={() => setNewInv({ ...newInv, items: [...newInv.items, { productId: '', qty: 1, unitPrice: 0 }] })} className="text-blue-600 font-bold text-xs flex items-center gap-1">➕ افزودن ردیف</button>
+              <button type="button" onClick={() => setNewInv({ ...newInv, items: [...newInv.items, { productId: '', qty: 1, unitPrice: 0, purchasePrice: 0 }] })} className="text-blue-600 font-bold text-xs flex items-center gap-1">➕ افزودن ردیف</button>
             </div>
           </div>
 
