@@ -34,8 +34,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
-          releaseName: 'نسخه ویندوز تئوری (Tauri) - ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}'
+          tagName: '${{ startsWith(github.ref, "refs/tags/") && github.ref_name || "v1.0.0" }}'
+          releaseName: 'نسخه ویندوز تئوری (Tauri) - ${{ startsWith(github.ref, "refs/tags/") && github.ref_name || "v1.0.0" }}'
           releaseBody: |
             ### ⚡ دانلود سیستم حسابداری پلاستیک‌بان - نسخه تئوری (Tauri)
             
