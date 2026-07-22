@@ -1,4 +1,3 @@
-
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { Product, Purchase, Customer, Invoice, Payment, Reminder, Todo, Category, InvoiceType, ReminderStatus } from './types';
@@ -26,8 +25,25 @@ class Database {
   private syncStatus: SyncStatus = 'offline';
   private subscribers: SubscriptionCallback[] = [];
 
+  // Index Maps for High-Performance O(1) Lookups & Queries
+  private productMap: Map<string, Product> = new Map();
+  private productNameMap: Map<string, Product> = new Map();
+  private productCodeMap: Map<string, Product> = new Map();
+  private productCategoryIndex: Map<string, Product[]> = new Map();
+
+  private customerMap: Map<string, Customer> = new Map();
+  private customerPhoneMap: Map<string, Customer> = new Map();
+
+  private invoiceMap: Map<string, Invoice> = new Map();
+  private invoiceNumberMap: Map<string, Invoice> = new Map();
+  private invoiceCustomerIndex: Map<string, Invoice[]> = new Map();
+
+  private categoryMap: Map<string, Category> = new Map();
+  private categoryNameMap: Map<string, Category> = new Map();
+
   constructor() {
     this.loadLocal();
+    this.rebuildIndexes();
   }
 
   subscribe(callback: SubscriptionCallback) {
@@ -37,7 +53,69 @@ class Database {
     };
   }
 
+  private rebuildIndexes() {
+    // Clear all index structures
+    this.productMap.clear();
+    this.productNameMap.clear();
+    this.productCodeMap.clear();
+    this.productCategoryIndex.clear();
+
+    this.customerMap.clear();
+    this.customerPhoneMap.clear();
+
+    this.invoiceMap.clear();
+    this.invoiceNumberMap.clear();
+    this.invoiceCustomerIndex.clear();
+
+    this.categoryMap.clear();
+    this.categoryNameMap.clear();
+
+    // Index Products
+    for (let i = 0; i < this.data.products.length; i++) {
+      const p = this.data.products[i];
+      this.productMap.set(p.id, p);
+      if (p.name) this.productNameMap.set(p.name.trim().toLowerCase(), p);
+      if (p.internalCode) this.productCodeMap.set(p.internalCode.trim().toLowerCase(), p);
+
+      const cat = p.category || 'ثبت نشده';
+      if (!this.productCategoryIndex.has(cat)) {
+        this.productCategoryIndex.set(cat, []);
+      }
+      this.productCategoryIndex.get(cat)!.push(p);
+    }
+
+    // Index Customers
+    for (let i = 0; i < this.data.customers.length; i++) {
+      const c = this.data.customers[i];
+      this.customerMap.set(c.id, c);
+      if (c.phone) this.customerPhoneMap.set(c.phone.trim(), c);
+    }
+
+    // Index Invoices
+    for (let i = 0; i < this.data.invoices.length; i++) {
+      const inv = this.data.invoices[i];
+      this.invoiceMap.set(inv.id, inv);
+      if (inv.invoiceNumber) {
+        this.invoiceNumberMap.set(inv.invoiceNumber.trim().toLowerCase(), inv);
+      }
+      if (inv.customerId) {
+        if (!this.invoiceCustomerIndex.has(inv.customerId)) {
+          this.invoiceCustomerIndex.set(inv.customerId, []);
+        }
+        this.invoiceCustomerIndex.get(inv.customerId)!.push(inv);
+      }
+    }
+
+    // Index Categories
+    for (let i = 0; i < this.data.categories.length; i++) {
+      const cat = this.data.categories[i];
+      this.categoryMap.set(cat.id, cat);
+      if (cat.name) this.categoryNameMap.set(cat.name.trim().toLowerCase(), cat);
+    }
+  }
+
   private notify(isMutation: boolean = true) {
+    this.rebuildIndexes();
     this.saveLocal();
     if (isMutation) {
       try { localStorage.setItem('plasticban_needs_backup', 'true'); } catch(e) {}
@@ -81,11 +159,27 @@ class Database {
   }
 
   async init(): Promise<void> {
-    this.seedData();
-    const configStr = localStorage.getItem('firebase_config');
-    if (configStr) {
-      this.connectFirebase(JSON.parse(configStr));
-    } else {
+    try {
+      this.seedData();
+      let configStr = null;
+      try {
+        configStr = localStorage.getItem('firebase_config');
+      } catch (storageErr) {
+        console.warn("Storage access warning:", storageErr);
+      }
+
+      if (configStr) {
+        try {
+          this.connectFirebase(JSON.parse(configStr));
+        } catch (fbErr) {
+          console.error("Failed to parse firebase_config:", fbErr);
+          this.notify(false);
+        }
+      } else {
+        this.notify(false);
+      }
+    } catch (err) {
+      console.error("Database initialization error:", err);
       this.notify(false);
     }
   }
@@ -202,6 +296,7 @@ class Database {
     }
   }
 
+  // --- Collection Getters ---
   getProducts() { return this.data.products; }
   getPurchases() { return this.data.purchases; }
   getCustomers() { return this.data.customers; }
@@ -211,6 +306,193 @@ class Database {
   getTodos() { return this.data.todos; }
   getCategories() { return this.data.categories; }
 
+  // --- Fast Indexed O(1) Lookups ---
+  getProductById(id: string): Product | undefined {
+    return this.productMap.get(id);
+  }
+
+  getProductByName(name: string): Product | undefined {
+    return this.productNameMap.get(name.trim().toLowerCase());
+  }
+
+  getProductByCode(code: string): Product | undefined {
+    return this.productCodeMap.get(code.trim().toLowerCase());
+  }
+
+  getProductsByCategory(category: string): Product[] {
+    if (category === 'ALL') return this.data.products;
+    return this.productCategoryIndex.get(category) || [];
+  }
+
+  getCustomerById(id: string): Customer | undefined {
+    return this.customerMap.get(id);
+  }
+
+  getCustomerByPhone(phone: string): Customer | undefined {
+    return this.customerPhoneMap.get(phone.trim());
+  }
+
+  getInvoiceById(id: string): Invoice | undefined {
+    return this.invoiceMap.get(id);
+  }
+
+  getInvoiceByNumber(invoiceNumber: string): Invoice | undefined {
+    return this.invoiceNumberMap.get(invoiceNumber.trim().toLowerCase());
+  }
+
+  getInvoicesByCustomer(customerId: string): Invoice[] {
+    if (customerId === 'ALL') return this.data.invoices;
+    return this.invoiceCustomerIndex.get(customerId) || [];
+  }
+
+  getCategoryById(id: string): Category | undefined {
+    return this.categoryMap.get(id);
+  }
+
+  getCategoryByName(name: string): Category | undefined {
+    return this.categoryNameMap.get(name.trim().toLowerCase());
+  }
+
+  // --- High-Performance Indexed Query Engine ---
+  queryInvoices(params: {
+    searchTerm?: string;
+    type?: InvoiceType | 'ALL';
+    customerId?: string;
+    startDate?: string;
+    endDate?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    paymentStatus?: 'ALL' | 'PAID' | 'DEBT';
+    category?: string;
+    sortBy?: 'date' | 'totalAmount' | 'customerName';
+    sortOrder?: 'asc' | 'desc';
+  }): Invoice[] {
+    let source = this.data.invoices;
+
+    // Index acceleration: filter by Customer Index if provided
+    if (params.customerId && params.customerId !== 'ALL') {
+      source = this.invoiceCustomerIndex.get(params.customerId) || [];
+    }
+
+    // Index acceleration: if searching exact invoice number
+    if (params.searchTerm) {
+      const trimmedTerm = params.searchTerm.trim().toLowerCase();
+      const exactInvoice = this.invoiceNumberMap.get(trimmedTerm);
+      if (exactInvoice && (!params.customerId || params.customerId === 'ALL' || exactInvoice.customerId === params.customerId)) {
+        source = [exactInvoice];
+      }
+    }
+
+    const startMs = params.startDate ? new Date(params.startDate).setHours(0, 0, 0, 0) : null;
+    const endMs = params.endDate ? new Date(params.endDate).setHours(23, 59, 59, 999) : null;
+
+    const filtered = source.filter(inv => {
+      if (params.type && params.type !== 'ALL' && inv.type !== params.type) return false;
+      if (params.customerId && params.customerId !== 'ALL' && inv.customerId !== params.customerId) return false;
+
+      if (params.searchTerm) {
+        const term = params.searchTerm.toLowerCase();
+        const matchNum = inv.invoiceNumber.toLowerCase().includes(term);
+        const matchCust = (inv.customerName || 'مشتری گذری').toLowerCase().includes(term);
+        if (!matchNum && !matchCust) return false;
+      }
+
+      if (startMs !== null || endMs !== null) {
+        const invTime = new Date(inv.date).getTime();
+        if (startMs !== null && invTime < startMs) return false;
+        if (endMs !== null && invTime > endMs) return false;
+      }
+
+      if (params.minAmount !== undefined && inv.totalAmount < params.minAmount) return false;
+      if (params.maxAmount !== undefined && inv.totalAmount > params.maxAmount) return false;
+
+      if (params.paymentStatus === 'PAID' && inv.remainingAmount > 0) return false;
+      if (params.paymentStatus === 'DEBT' && inv.remainingAmount <= 0) return false;
+
+      if (params.category && params.category !== 'ALL') {
+        const matchCat = inv.items.some(item => {
+          const prod = item.productId ? this.productMap.get(item.productId) : null;
+          return prod?.category === params.category;
+        });
+        if (!matchCat) return false;
+      }
+
+      return true;
+    });
+
+    const sortBy = params.sortBy || 'date';
+    const sortOrder = params.sortOrder || 'desc';
+
+    return filtered.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'date') {
+        cmp = new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else if (sortBy === 'totalAmount') {
+        cmp = a.totalAmount - b.totalAmount;
+      } else if (sortBy === 'customerName') {
+        const nameA = a.customerName || 'مشتری گذری';
+        const nameB = b.customerName || 'مشتری گذری';
+        cmp = nameA.localeCompare(nameB, 'fa');
+      }
+      return sortOrder === 'desc' ? -cmp : cmp;
+    });
+  }
+
+  queryProducts(params: {
+    searchTerm?: string;
+    category?: string;
+    stockStatus?: 'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+    minPrice?: number;
+    maxPrice?: number;
+    minQty?: number;
+    maxQty?: number;
+    sortBy?: string;
+  }): Product[] {
+    let source = this.data.products;
+
+    if (params.category && params.category !== 'ALL') {
+      source = this.productCategoryIndex.get(params.category) || [];
+    }
+
+    const filtered = source.filter(p => {
+      if (params.searchTerm) {
+        const term = params.searchTerm.toLowerCase();
+        const matchName = p.name.toLowerCase().includes(term);
+        const matchId = p.id.toLowerCase().includes(term);
+        const matchCode = p.internalCode ? p.internalCode.toLowerCase().includes(term) : false;
+        if (!matchName && !matchId && !matchCode) return false;
+      }
+
+      if (params.stockStatus === 'IN_STOCK' && p.quantity <= 0) return false;
+      if (params.stockStatus === 'LOW_STOCK' && p.quantity > p.lowStockThreshold) return false;
+      if (params.stockStatus === 'OUT_OF_STOCK' && p.quantity !== 0) return false;
+
+      if (params.minQty !== undefined && p.quantity < params.minQty) return false;
+      if (params.maxQty !== undefined && p.quantity > params.maxQty) return false;
+
+      if (params.minPrice !== undefined && p.retailPrice < params.minPrice) return false;
+      if (params.maxPrice !== undefined && p.retailPrice > params.maxPrice) return false;
+
+      return true;
+    });
+
+    if (params.sortBy) {
+      filtered.sort((a, b) => {
+        switch (params.sortBy) {
+          case 'name_asc': return a.name.localeCompare(b.name, 'fa');
+          case 'name_desc': return b.name.localeCompare(a.name, 'fa');
+          case 'category_asc': return a.category.localeCompare(b.category, 'fa');
+          case 'qty_desc': return b.quantity - a.quantity;
+          case 'qty_asc': return a.quantity - b.quantity;
+          default: return 0;
+        }
+      });
+    }
+
+    return filtered;
+  }
+
+  // --- Category Operations ---
   addCategory(name: string, retailMargin?: number, wholesaleMargin?: number) {
     const category: Category = { 
       id: 'cat-' + Date.now() + '-' + Math.floor(Math.random() * 10000), 
@@ -225,7 +507,7 @@ class Database {
   }
 
   updateCategory(id: string, updates: Partial<Category>) {
-    const category = this.data.categories.find(c => c.id === id);
+    const category = this.categoryMap.get(id) || this.data.categories.find(c => c.id === id);
     if (category) {
       const oldName = category.name;
       Object.assign(category, updates);
@@ -244,7 +526,7 @@ class Database {
   }
 
   applyCategoryMargins(categoryId: string) {
-    const category = this.data.categories.find(c => c.id === categoryId);
+    const category = this.categoryMap.get(categoryId) || this.data.categories.find(c => c.id === categoryId);
     if (!category || (category.retailMargin === undefined && category.wholesaleMargin === undefined)) return;
 
     this.data.products.forEach(p => {
@@ -267,6 +549,7 @@ class Database {
     this.notify();
   }
 
+  // --- Product Operations ---
   addProduct(product: Product) {
     this.data.products.push(product);
     this.pushDoc('products', product.id, product);
@@ -275,9 +558,9 @@ class Database {
 
   addProducts(products: Product[]) {
     products.forEach((product) => {
-      const index = this.data.products.findIndex(p => p.id === product.id);
-      if (index !== -1) {
-        this.data.products[index] = { ...this.data.products[index], ...product };
+      const existing = this.productMap.get(product.id);
+      if (existing) {
+        Object.assign(existing, product);
       } else {
         this.data.products.push(product);
       }
@@ -287,10 +570,10 @@ class Database {
   }
 
   updateProduct(id: string, updates: Partial<Product>) {
-    const index = this.data.products.findIndex(p => p.id === id);
-    if (index !== -1) {
-      this.data.products[index] = { ...this.data.products[index], ...updates };
-      this.pushDoc('products', id, this.data.products[index]);
+    const product = this.productMap.get(id) || this.data.products.find(p => p.id === id);
+    if (product) {
+      Object.assign(product, updates);
+      this.pushDoc('products', id, product);
       this.notify();
     }
   }
@@ -302,28 +585,26 @@ class Database {
   }
 
   bulkUpdateProducts(ids: string[], updates: { retailPercent?: number, wholesalePercent?: number, costPercent?: number, quantity?: number, category?: string }) {
-    this.data.products = this.data.products.map(p => {
-      if (ids.includes(p.id)) {
-        let updated = { ...p };
-        if (updates.retailPercent !== undefined) updated.retailPrice = Math.round(updated.retailPrice * (1 + updates.retailPercent / 100));
-        if (updates.wholesalePercent !== undefined) updated.wholesalePrice = Math.round(updated.wholesalePrice * (1 + updates.wholesalePercent / 100));
-        if (updates.costPercent !== undefined) updated.avgCost = Math.round(updated.avgCost * (1 + updates.costPercent / 100));
-        if (updates.quantity !== undefined) updated.quantity = updates.quantity;
-        if (updates.category !== undefined) updated.category = updates.category;
-        
-        this.pushDoc('products', updated.id, updated);
-        return updated;
+    const targetSet = new Set(ids);
+    this.data.products.forEach(p => {
+      if (targetSet.has(p.id)) {
+        if (updates.retailPercent !== undefined) p.retailPrice = Math.round(p.retailPrice * (1 + updates.retailPercent / 100));
+        if (updates.wholesalePercent !== undefined) p.wholesalePrice = Math.round(p.wholesalePrice * (1 + updates.wholesalePercent / 100));
+        if (updates.costPercent !== undefined) p.avgCost = Math.round(p.avgCost * (1 + updates.costPercent / 100));
+        if (updates.quantity !== undefined) p.quantity = updates.quantity;
+        if (updates.category !== undefined) p.category = updates.category;
+        this.pushDoc('products', p.id, p);
       }
-      return p;
     });
     this.notify();
   }
 
+  // --- Purchase Operations ---
   addPurchase(purchase: Purchase) {
     this.data.purchases.push(purchase);
     this.pushDoc('purchases', purchase.id, purchase);
     purchase.items.forEach(item => {
-      const product = this.data.products.find(p => p.id === item.productId);
+      const product = this.productMap.get(item.productId);
       if (product) {
         const oldQty = product.quantity;
         const oldAvg = product.avgCost;
@@ -341,7 +622,7 @@ class Database {
     if (index === -1) throw new Error("سند خرید یافت نشد");
     const oldPurchase = this.data.purchases[index];
     oldPurchase.items.forEach(oldItem => {
-      const product = this.data.products.find(p => p.id === oldItem.productId);
+      const product = this.productMap.get(oldItem.productId);
       if (product) {
         const currentTotalCost = product.quantity * product.avgCost;
         const oldItemTotalCost = oldItem.qty * oldItem.unitCost;
@@ -355,7 +636,7 @@ class Database {
       }
     });
     updatedPurchase.items.forEach(newItem => {
-      const product = this.data.products.find(p => p.id === newItem.productId);
+      const product = this.productMap.get(newItem.productId);
       if (product) {
         const currentTotalCost = product.quantity * product.avgCost;
         const newItemTotalCost = newItem.qty * newItem.unitCost;
@@ -369,14 +650,15 @@ class Database {
     this.notify();
   }
 
+  // --- Invoice Operations ---
   createInvoice(invoice: Invoice) {
-    if (!this.data.categories.some(c => c.name === 'ثبت نشده')) {
+    if (!this.categoryNameMap.has('ثبت نشده')) {
       this.addCategory('ثبت نشده', 30, 15);
     }
 
     invoice.items.forEach(item => {
       if (!item.productId && item.productName) {
-        let product = this.data.products.find(p => p.name.trim().toLowerCase() === item.productName.trim().toLowerCase());
+        let product = this.getProductByName(item.productName);
         if (!product) {
           product = {
             id: 'p-man-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
@@ -397,7 +679,7 @@ class Database {
       }
 
       if (item.productId) {
-        const product = this.data.products.find(p => p.id === item.productId);
+        const product = this.productMap.get(item.productId);
         if (product) {
           product.quantity -= item.qty;
           if (!item.costBasisAtSale) {
@@ -409,7 +691,7 @@ class Database {
     });
 
     if (invoice.customerId && invoice.remainingAmount > 0) {
-      const customer = this.data.customers.find(c => c.id === invoice.customerId);
+      const customer = this.customerMap.get(invoice.customerId);
       if (customer) {
         customer.balance -= invoice.remainingAmount;
         this.pushDoc('customers', customer.id, customer);
@@ -439,25 +721,25 @@ class Database {
     if (index === -1) throw new Error("فاکتور یافت نشد");
     const oldInvoice = this.data.invoices[index];
     
-    if (!this.data.categories.some(c => c.name === 'ثبت نشده')) {
+    if (!this.categoryNameMap.has('ثبت نشده')) {
       this.addCategory('ثبت نشده', 30, 15);
     }
 
     oldInvoice.items.forEach(oldItem => {
       if (oldItem.productId) {
-        const product = this.data.products.find(p => p.id === oldItem.productId);
+        const product = this.productMap.get(oldItem.productId);
         if (product) product.quantity += oldItem.qty;
       }
     });
 
     if (oldInvoice.customerId && oldInvoice.remainingAmount > 0) {
-      const customer = this.data.customers.find(c => c.id === oldInvoice.customerId);
+      const customer = this.customerMap.get(oldInvoice.customerId);
       if (customer) customer.balance += oldInvoice.remainingAmount;
     }
 
     updatedInvoice.items.forEach(newItem => {
       if (!newItem.productId && newItem.productName) {
-        let product = this.data.products.find(p => p.name.trim().toLowerCase() === newItem.productName.trim().toLowerCase());
+        let product = this.getProductByName(newItem.productName);
         if (!product) {
           product = {
             id: 'p-man-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
@@ -478,7 +760,7 @@ class Database {
       }
 
       if (newItem.productId) {
-        const product = this.data.products.find(p => p.id === newItem.productId);
+        const product = this.productMap.get(newItem.productId);
         if (product) {
           product.quantity -= newItem.qty;
           if (!newItem.costBasisAtSale) {
@@ -490,7 +772,7 @@ class Database {
     });
 
     if (updatedInvoice.customerId && updatedInvoice.remainingAmount > 0) {
-      const customer = this.data.customers.find(c => c.id === updatedInvoice.customerId);
+      const customer = this.customerMap.get(updatedInvoice.customerId);
       if (customer) {
         customer.balance -= updatedInvoice.remainingAmount;
         this.pushDoc('customers', customer.id, customer);
@@ -510,7 +792,7 @@ class Database {
     // 1. Restore product quantities
     inv.items.forEach(item => {
       if (item.productId) {
-        const product = this.data.products.find(p => p.id === item.productId);
+        const product = this.productMap.get(item.productId);
         if (product) {
           product.quantity += item.qty;
           this.pushDoc('products', product.id, product);
@@ -520,7 +802,7 @@ class Database {
 
     // 2. Adjust customer balance
     if (inv.customerId && inv.remainingAmount > 0) {
-      const customer = this.data.customers.find(c => c.id === inv.customerId);
+      const customer = this.customerMap.get(inv.customerId);
       if (customer) {
         customer.balance += inv.remainingAmount;
         this.pushDoc('customers', customer.id, customer);
@@ -538,8 +820,9 @@ class Database {
     this.notify();
   }
 
+  // --- Customer & Payment Operations ---
   addPayment(payment: Payment) {
-    const customer = this.data.customers.find(c => c.id === payment.customerId);
+    const customer = this.customerMap.get(payment.customerId);
     if (customer) {
       customer.balance += payment.amount;
       this.pushDoc('customers', customer.id, customer);
@@ -556,14 +839,15 @@ class Database {
   }
 
   updateCustomer(id: string, updates: Partial<Customer>) {
-    const index = this.data.customers.findIndex(c => c.id === id);
-    if (index !== -1) {
-      this.data.customers[index] = { ...this.data.customers[index], ...updates };
-      this.pushDoc('customers', id, this.data.customers[index]);
+    const customer = this.customerMap.get(id) || this.data.customers.find(c => c.id === id);
+    if (customer) {
+      Object.assign(customer, updates);
+      this.pushDoc('customers', id, customer);
       this.notify();
     }
   }
 
+  // --- Todos Operations ---
   addTodo(text: string) {
     const todo: Todo = { id: 'todo-' + Date.now(), text, completed: false, createdAt: new Date().toISOString() };
     this.data.todos.push(todo);
@@ -587,6 +871,7 @@ class Database {
     this.notify();
   }
 
+  // --- Reminder Operations ---
   addReminder(reminder: Reminder) {
     this.data.reminders.push(reminder);
     this.pushDoc('reminders', reminder.id, reminder);
@@ -638,6 +923,7 @@ class Database {
     this.data.todos = todos;
 
     this.saveLocal();
+    this.rebuildIndexes();
   }
 }
 

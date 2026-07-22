@@ -57,62 +57,18 @@ const Invoices: React.FC = () => {
   const remaining = finalTotal - newInv.paidAmount;
 
   const filteredInvoices = useMemo(() => {
-    const filtered = invoices.filter(inv => {
-      const matchSearch = inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (inv.customerName || 'مشتری گذری').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchType = typeFilter === 'ALL' || inv.type === typeFilter;
-      const matchCustomer = customerFilter === 'ALL' || inv.customerId === customerFilter;
-      
-      const invDate = new Date(inv.date);
-      
-      let matchStart = true;
-      if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        matchStart = invDate >= start;
-      }
-
-      let matchEnd = true;
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        matchEnd = invDate <= end;
-      }
-
-      // Invoice Amount Range limits
-      const numMinAmount = minAmount !== '' ? Number(minAmount) : -Infinity;
-      const numMaxAmount = maxAmount !== '' ? Number(maxAmount) : Infinity;
-      const matchAmount = inv.totalAmount >= numMinAmount && inv.totalAmount <= numMaxAmount;
-
-      // Payment settlement Status
-      let matchPayment = true;
-      if (paymentStatus === 'PAID') {
-        matchPayment = inv.remainingAmount <= 0;
-      } else if (paymentStatus === 'DEBT') {
-        matchPayment = inv.remainingAmount > 0;
-      }
-
-      // Containing Category Overlap
-      const matchCategory = containingCategory === 'ALL' || inv.items.some(item => {
-        const prod = products.find(p => p.id === item.productId);
-        return prod?.category === containingCategory;
-      });
-
-      return matchSearch && matchType && matchCustomer && matchStart && matchEnd && matchAmount && matchPayment && matchCategory;
-    });
-
-    return [...filtered].sort((a, b) => {
-      let comparison = 0;
-      if (sortBy === 'date') {
-        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-      } else if (sortBy === 'totalAmount') {
-        comparison = a.totalAmount - b.totalAmount;
-      } else if (sortBy === 'customerName') {
-        const nameA = a.customerName || 'مشتری گذری';
-        const nameB = b.customerName || 'مشتری گذری';
-        comparison = nameA.localeCompare(nameB, 'fa');
-      }
-      return sortOrder === 'asc' ? comparison : -comparison;
+    return db.queryInvoices({
+      searchTerm,
+      type: typeFilter,
+      customerId: customerFilter,
+      startDate,
+      endDate,
+      minAmount: minAmount !== '' ? Number(minAmount) : undefined,
+      maxAmount: maxAmount !== '' ? Number(maxAmount) : undefined,
+      paymentStatus,
+      category: containingCategory,
+      sortBy,
+      sortOrder
     });
   }, [invoices, searchTerm, typeFilter, customerFilter, startDate, endDate, minAmount, maxAmount, paymentStatus, containingCategory, sortBy, sortOrder]);
 

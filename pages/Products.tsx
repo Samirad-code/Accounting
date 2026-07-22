@@ -46,51 +46,16 @@ const Products: React.FC = () => {
   });
 
   const filteredProducts = useMemo(() => {
-    let result = products.filter(p => {
-      const matchSearch = 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        (p.internalCode && p.internalCode.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      const matchCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
-      
-      // Stock Status matching
-      let matchStock = true;
-      if (stockStatus === 'IN_STOCK') {
-        matchStock = p.quantity > 0;
-      } else if (stockStatus === 'LOW_STOCK') {
-        matchStock = p.quantity <= p.lowStockThreshold;
-      } else if (stockStatus === 'OUT_OF_STOCK') {
-        matchStock = p.quantity === 0;
-      } else if (lowStockOnly) {
-        matchStock = p.quantity <= p.lowStockThreshold;
-      }
-
-      // Min/Max Quantities
-      const numMinQty = minQty !== '' ? Number(minQty) : -Infinity;
-      const numMaxQty = maxQty !== '' ? Number(maxQty) : Infinity;
-      const matchQty = p.quantity >= numMinQty && p.quantity <= numMaxQty;
-
-      // Min/Max Prices (searched in retailPrice)
-      const numMinPrice = minPrice !== '' ? Number(minPrice) : -Infinity;
-      const numMaxPrice = maxPrice !== '' ? Number(maxPrice) : Infinity;
-      const matchPrice = p.retailPrice >= numMinPrice && p.retailPrice <= numMaxPrice;
-
-      return matchSearch && matchCategory && matchStock && matchQty && matchPrice;
+    return db.queryProducts({
+      searchTerm,
+      category: categoryFilter,
+      stockStatus: lowStockOnly ? 'LOW_STOCK' : stockStatus,
+      minPrice: minPrice !== '' ? Number(minPrice) : undefined,
+      maxPrice: maxPrice !== '' ? Number(maxPrice) : undefined,
+      minQty: minQty !== '' ? Number(minQty) : undefined,
+      maxQty: maxQty !== '' ? Number(maxQty) : undefined,
+      sortBy
     });
-
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case 'name_asc': return a.name.localeCompare(b.name, 'fa');
-        case 'name_desc': return b.name.localeCompare(a.name, 'fa');
-        case 'category_asc': return a.category.localeCompare(b.category, 'fa');
-        case 'qty_desc': return b.quantity - a.quantity;
-        case 'qty_asc': return a.quantity - b.quantity;
-        default: return 0;
-      }
-    });
-
-    return result;
   }, [products, searchTerm, categoryFilter, lowStockOnly, stockStatus, minQty, maxQty, minPrice, maxPrice, sortBy]);
 
   const toggleSelectAll = () => {

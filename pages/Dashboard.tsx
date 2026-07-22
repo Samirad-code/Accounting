@@ -80,6 +80,7 @@ const Dashboard: React.FC = () => {
   const purchases = db.getPurchases();
   const [todos, setTodos] = useState<Todo[]>(db.getTodos());
   const [newTodo, setNewTodo] = useState('');
+  const [chartTimeRange, setChartTimeRange] = useState<'weekly' | 'monthly'>('monthly');
 
   const [isDark, setIsDark] = useState(false);
   useEffect(() => {
@@ -131,53 +132,106 @@ const Dashboard: React.FC = () => {
   const topDebtors = [...customers].sort((a, b) => a.balance - b.balance).slice(0, 5);
 
   const chartData = useMemo(() => {
-    const currentJalali = getJalaliParts(new Date());
-    const monthsData = [];
-    let currYear = currentJalali.year;
-    let currMonth = currentJalali.month;
+    if (chartTimeRange === 'weekly') {
+      const now = new Date();
+      now.setHours(23, 59, 59, 999);
 
-    for (let i = 0; i < 12; i++) {
-      monthsData.push({
-        year: currYear,
-        month: currMonth,
-        name: `${jalaliMonths[currMonth - 1]} ${currYear % 100}`,
-        sales: 0,
-        purchases: 0
+      const weeksData = [];
+      for (let i = 11; i >= 0; i--) {
+        let name = '';
+        if (i === 0) name = 'هفته جاری';
+        else if (i === 1) name = '۱ هفته قبل';
+        else name = `${i.toLocaleString('fa-IR')} هفته قبل`;
+
+        weeksData.push({
+          weekAgo: i,
+          name,
+          sales: 0,
+          purchases: 0
+        });
+      }
+
+      invoices.forEach(inv => {
+        if (inv.status !== 'ACTIVE') return;
+        const invDate = new Date(inv.date);
+        const diffMs = now.getTime() - invDate.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0) {
+          const weekAgo = Math.floor(diffDays / 7);
+          if (weekAgo >= 0 && weekAgo < 12) {
+            const match = weeksData.find(w => w.weekAgo === weekAgo);
+            if (match) {
+              match.sales += inv.totalAmount;
+            }
+          }
+        }
       });
 
-      currMonth--;
-      if (currMonth === 0) {
-        currMonth = 12;
-        currYear--;
+      purchases.forEach(p => {
+        const pDate = new Date(p.date);
+        const diffMs = now.getTime() - pDate.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0) {
+          const weekAgo = Math.floor(diffDays / 7);
+          if (weekAgo >= 0 && weekAgo < 12) {
+            const match = weeksData.find(w => w.weekAgo === weekAgo);
+            if (match) {
+              match.purchases += p.totalAmount;
+            }
+          }
+        }
+      });
+
+      return weeksData;
+    } else {
+      const currentJalali = getJalaliParts(new Date());
+      const monthsData = [];
+      let currYear = currentJalali.year;
+      let currMonth = currentJalali.month;
+
+      for (let i = 0; i < 12; i++) {
+        monthsData.push({
+          year: currYear,
+          month: currMonth,
+          name: `${jalaliMonths[currMonth - 1]} ${currYear % 100}`,
+          sales: 0,
+          purchases: 0
+        });
+
+        currMonth--;
+        if (currMonth === 0) {
+          currMonth = 12;
+          currYear--;
+        }
       }
+
+      const months = monthsData.reverse();
+
+      // Accumulate invoices (sales)
+      invoices.forEach(inv => {
+        if (inv.status !== 'ACTIVE') return;
+        const jalali = getJalaliParts(new Date(inv.date));
+        const match = months.find(m => m.year === jalali.year && m.month === jalali.month);
+        if (match) {
+          match.sales += inv.totalAmount;
+        }
+      });
+
+      // Accumulate purchases
+      purchases.forEach(p => {
+        const jalali = getJalaliParts(new Date(p.date));
+        const match = months.find(m => m.year === jalali.year && m.month === jalali.month);
+        if (match) {
+          match.purchases += p.totalAmount;
+        }
+      });
+
+      return months;
     }
+  }, [invoices, purchases, chartTimeRange]);
 
-    const months = monthsData.reverse();
-
-    // Accumulate invoices (sales)
-    invoices.forEach(inv => {
-      if (inv.status !== 'ACTIVE') return;
-      const jalali = getJalaliParts(new Date(inv.date));
-      const match = months.find(m => m.year === jalali.year && m.month === jalali.month);
-      if (match) {
-        match.sales += inv.totalAmount;
-      }
-    });
-
-    // Accumulate purchases
-    purchases.forEach(p => {
-      const jalali = getJalaliParts(new Date(p.date));
-      const match = months.find(m => m.year === jalali.year && m.month === jalali.month);
-      if (match) {
-        match.purchases += p.totalAmount;
-      }
-    });
-
-    return months;
-  }, [invoices, purchases]);
-
-  const totalSalesOfYear = useMemo(() => chartData.reduce((acc, curr) => acc + curr.sales, 0), [chartData]);
-  const totalPurchasesOfYear = useMemo(() => chartData.reduce((acc, curr) => acc + curr.purchases, 0), [chartData]);
+  const totalSalesPeriod = useMemo(() => chartData.reduce((acc, curr) => acc + curr.sales, 0), [chartData]);
+  const totalPurchasesPeriod = useMemo(() => chartData.reduce((acc, curr) => acc + curr.purchases, 0), [chartData]);
 
   const currentJalali = useMemo(() => getJalaliParts(new Date()), []);
   const currentMonthName = useMemo(() => jalaliMonths[currentJalali.month - 1] || 'جاری', [currentJalali]);
@@ -310,24 +364,64 @@ const Dashboard: React.FC = () => {
       </div>
 
 
-      {/* Monthly Financial Chart Section */}
+      {/* Financial Chart Section */}
       <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] shadow-sm p-6 md:p-8 transition-all hover:shadow-lg">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 border-b border-slate-100 dark:border-slate-800 pb-6">
-          <div>
-            <h4 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-3">
+          <div className="space-y-1">
+            <h4 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
               <span className="text-xl">📈</span>
-              گزارش عملکرد مالی ماهانه
+              {chartTimeRange === 'weekly' ? 'گزارش عملکرد مالی هفتگی' : 'گزارش عملکرد مالی ماهانه'}
             </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-1">مقایسه فروش و خرید در بازه ۱۲ ماه گذشته (ریالی)</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-bold">
+              {chartTimeRange === 'weekly' 
+                ? 'مقایسه روند فروش و خرید در بازه ۱۲ هفته گذشته (ریالی)' 
+                : 'مقایسه روند فروش و خرید در بازه ۱۲ ماه گذشته (ریالی)'}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs font-black">
-            <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-950/40 px-4 py-2 rounded-2xl border border-blue-100/50 dark:border-blue-900/30">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-              <span className="text-blue-700 dark:text-blue-300">مجموع فروش ۱۲ ماه: <span className="font-mono">{formatCurrency(totalSalesOfYear)}</span></span>
+
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            {/* Time Range Selector */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 text-xs font-black shadow-inner">
+              <button
+                type="button"
+                onClick={() => setChartTimeRange('weekly')}
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+                  chartTimeRange === 'weekly'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                📅 هفتگی (۱۲ هفته)
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartTimeRange('monthly')}
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
+                  chartTimeRange === 'monthly'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                📊 ماهانه (۱۲ ماه)
+              </button>
             </div>
-            <div className="flex items-center gap-2 bg-rose-50 dark:bg-rose-950/40 px-4 py-2 rounded-2xl border border-rose-100/50 dark:border-rose-900/30">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-              <span className="text-rose-700 dark:text-rose-300">مجموع خرید ۱۲ ماه: <span className="font-mono">{formatCurrency(totalPurchasesOfYear)}</span></span>
+
+            {/* Totals Badges */}
+            <div className="flex flex-wrap items-center gap-3 text-xs font-black">
+              <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-950/40 px-3.5 py-2 rounded-2xl border border-blue-100/50 dark:border-blue-900/30">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                <span className="text-blue-700 dark:text-blue-300">
+                  {chartTimeRange === 'weekly' ? 'مجموع فروش ۱۲ هفته: ' : 'مجموع فروش ۱۲ ماه: '}
+                  <span className="font-mono">{formatCurrency(totalSalesPeriod)}</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2 bg-rose-50 dark:bg-rose-950/40 px-3.5 py-2 rounded-2xl border border-rose-100/50 dark:border-rose-900/30">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                <span className="text-rose-700 dark:text-rose-300">
+                  {chartTimeRange === 'weekly' ? 'مجموع خرید ۱۲ هفته: ' : 'مجموع خرید ۱۲ ماه: '}
+                  <span className="font-mono">{formatCurrency(totalPurchasesPeriod)}</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>

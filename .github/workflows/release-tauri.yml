@@ -1,0 +1,46 @@
+name: Build & Release Tauri App (Windows)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-tauri:
+    name: Build Tauri Windows App
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Build Tauri Executable
+        uses: tauri-apps/tauri-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'نسخه ویندوز تئوری (Tauri) - ${{ github.ref_name }}'
+          releaseBody: |
+            ### ⚡ دانلود سیستم حسابداری پلاستیک‌بان - نسخه تئوری (Tauri)
+            
+            - **ویژگی**: بسیار سبک (حجم کمتر از ۱۵ مگابایت)، سرعت بالا و مصرف رم حداقل
+            - **پیش‌نیاز**: نیازمند WebView2 ویندوز (به صورت پیش‌فرض در ویندوز ۱۰ و ۱۱ نصب است)
+          releaseDraft: false
+          prerelease: false
+          args: --target x86_64-pc-windows-msvc

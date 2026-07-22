@@ -16,18 +16,27 @@
     <script type="module" src="/index.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
+        const isInIframe = window.self !== window.top;
         const isDev = window.location.hostname === 'localhost' || 
                       window.location.hostname === '127.0.0.1' || 
                       window.location.hostname.includes('-dev-') ||
-                      window.location.hostname.includes('.run.app');
+                      window.location.hostname.includes('.run.app') ||
+                      isInIframe;
         if (isDev) {
           navigator.serviceWorker.getRegistrations().then(registrations => {
             for (let registration of registrations) {
               registration.unregister().then(() => {
-                console.log('Dev Mode: Stale Service Worker unregistered successfully.');
+                console.log('Dev/Iframe Mode: Stale Service Worker unregistered.');
               });
             }
-          });
+          }).catch(err => console.warn('SW cleanup error', err));
+          if ('caches' in window) {
+            caches.keys().then(names => {
+              for (let name of names) {
+                caches.delete(name);
+              }
+            }).catch(err => console.warn('Caches cleanup error', err));
+          }
         } else {
           window.addEventListener('load', () => {
             navigator.serviceWorker.register('/sw.js')

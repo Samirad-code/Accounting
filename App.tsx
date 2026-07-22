@@ -12,31 +12,26 @@ import { db } from './db';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
-  const [isDbReady, setIsDbReady] = useState(false);
   const [dbTick, setDbTick] = useState(0);
 
   useEffect(() => {
     const unsubscribe = db.subscribe(() => {
-       setDbTick(prev => prev + 1);
-       if (!isDbReady) {
-         setIsDbReady(true);
-         db.triggerAutoBackup();
-       }
+      setDbTick(prev => prev + 1);
     });
     
     db.init();
 
     // سیستم بکاپ اضطراری هنگام بسته شدن تب
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const needsBackup = localStorage.getItem('plasticban_needs_backup') === 'true';
-      if (needsBackup) {
-        // تلاش برای دانلود بکاپ اضطراری (ممکن است توسط مرورگرهای مدرن برای جلوگیری از اسپم بلاک شود)
-        db.downloadBackupFile(`plasticban_emergency_backup_${Date.now()}.json`);
-        
-        // فعال کردن هشدار استاندارد مرورگر (Leave Site?) 
-        // تا اگر مرورگر دانلود را مسدود کرد، کاربر بتواند دکمه Cancel را بزند و خودش بکاپ بگیرد
-        e.preventDefault();
-        e.returnValue = ''; 
+      try {
+        const needsBackup = localStorage.getItem('plasticban_needs_backup') === 'true';
+        if (needsBackup) {
+          db.downloadBackupFile(`plasticban_emergency_backup_${Date.now()}.json`);
+          e.preventDefault();
+          e.returnValue = ''; 
+        }
+      } catch (err) {
+        // Safe storage fallback for sandboxed iframes
       }
     };
 
@@ -46,18 +41,7 @@ const App: React.FC = () => {
       unsubscribe();
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [isDbReady]);
-
-  if (!isDbReady) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white flex-col gap-6">
-        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <div className="text-center space-y-2">
-          <p className="text-xl font-bold">راه‌اندازی سیستم...</p>
-        </div>
-      </div>
-    );
-  }
+  }, []);
 
   const renderPage = () => {
     switch (currentPage) {

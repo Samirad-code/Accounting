@@ -135,6 +135,132 @@ const Reports: React.FC = () => {
     return { grossSales, totalCogs, totalDiscounts, netProfit, categoryProfit, topProducts };
   }, [filteredInvoices, productSortBy]);
 
+  // Advanced Sales Analytics & Managerial Recommendations
+  const analyticsData = useMemo(() => {
+    const dayStats: Record<string, { sales: number; profit: number; count: number }> = {
+      'شنبه': { sales: 0, profit: 0, count: 0 },
+      'یکشنبه': { sales: 0, profit: 0, count: 0 },
+      'دوشنبه': { sales: 0, profit: 0, count: 0 },
+      'سه‌شنبه': { sales: 0, profit: 0, count: 0 },
+      'چهارشنبه': { sales: 0, profit: 0, count: 0 },
+      'پنج‌شنبه': { sales: 0, profit: 0, count: 0 },
+      'جمعه': { sales: 0, profit: 0, count: 0 },
+    };
+
+    const dayNameMapping = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
+
+    const hourStats: Record<string, { label: string; sales: number; profit: number; count: number }> = {
+      morning: { label: 'صبح (۸ تا ۱۲)', sales: 0, profit: 0, count: 0 },
+      afternoon: { label: 'ظهر (۱۲ تا ۱۶)', sales: 0, profit: 0, count: 0 },
+      evening: { label: 'عصر (۱۶ تا ۲۰)', sales: 0, profit: 0, count: 0 },
+      night: { label: 'شب (۲۰ تا ۲۴)', sales: 0, profit: 0, count: 0 },
+      lateNight: { label: 'بامداد (۰ تا ۸)', sales: 0, profit: 0, count: 0 },
+    };
+
+    let totalSales = 0;
+    let totalProfit = 0;
+    const totalInvoices = filteredInvoices.length;
+
+    filteredInvoices.forEach(inv => {
+      const invDate = new Date(inv.date);
+      const dayName = dayNameMapping[invDate.getDay()] || 'شنبه';
+      const hour = invDate.getHours();
+
+      let invProfit = 0;
+      inv.items.forEach(item => {
+        const itemSales = item.qty * item.unitPrice;
+        const itemCost = item.qty * item.costBasisAtSale;
+        invProfit += (itemSales - itemCost);
+      });
+      invProfit -= inv.discountTotal;
+
+      totalSales += inv.totalAmount;
+      totalProfit += invProfit;
+
+      if (dayStats[dayName]) {
+        dayStats[dayName].sales += inv.totalAmount;
+        dayStats[dayName].profit += invProfit;
+        dayStats[dayName].count += 1;
+      }
+
+      let hourKey = 'evening';
+      if (hour >= 8 && hour < 12) hourKey = 'morning';
+      else if (hour >= 12 && hour < 16) hourKey = 'afternoon';
+      else if (hour >= 16 && hour < 20) hourKey = 'evening';
+      else if (hour >= 20 && hour <= 23) hourKey = 'night';
+      else hourKey = 'lateNight';
+
+      hourStats[hourKey].sales += inv.totalAmount;
+      hourStats[hourKey].profit += invProfit;
+      hourStats[hourKey].count += 1;
+    });
+
+    // Find top day
+    let topDay = { name: '---', sales: 0, profit: 0, count: 0 };
+    Object.entries(dayStats).forEach(([name, val]) => {
+      if (val.profit > topDay.profit || (topDay.profit === 0 && val.sales > topDay.sales)) {
+        topDay = { name, ...val };
+      }
+    });
+
+    // Find top hour slot
+    let topHour = { key: '', label: '---', sales: 0, profit: 0, count: 0 };
+    Object.entries(hourStats).forEach(([key, val]) => {
+      if (val.profit > topHour.profit || (topHour.profit === 0 && val.sales > topHour.sales)) {
+        topHour = { key, ...val };
+      }
+    });
+
+    const avgBasket = totalInvoices > 0 ? Math.round(totalSales / totalInvoices) : 0;
+    const avgProfit = totalInvoices > 0 ? Math.round(totalProfit / totalInvoices) : 0;
+
+    // Generate dynamic managerial recommendations
+    const recommendations: string[] = [];
+
+    if (totalInvoices > 0) {
+      if (topDay.name !== '---' && topDay.count > 0) {
+        recommendations.push(
+          `روز ${topDay.name} با ثبت ${topDay.count} فاکتور و کسب ${formatCurrency(topDay.profit)} سود خالص، پرسودترین روز هفته بوده است. پیشنهاد می‌شود برای این روز الگوی تامین کالا و حضور پرسنل فروش تقویت شود.`
+        );
+      }
+
+      if (topHour.label !== '---' && topHour.count > 0) {
+        recommendations.push(
+          `بازه زمانی ${topHour.label} پیک ترافیک مشتریان و سودآوری شماست. پیشنهاد می‌شود کمپین‌های تبلیغاتی یا تماس‌های پیگیری خارج از این ساعات برنامه‌ریزی شوند تا از پتانسیل حداکثری این زمان استفاده شود.`
+        );
+      }
+
+      if (avgBasket > 0) {
+        const targetUpsell = Math.round(avgBasket * 1.25);
+        recommendations.push(
+          `میانگین ارزش هر فاکتور ${formatCurrency(avgBasket)} است. با تعریف تخفیف‌های خریدهای بالاتری (مثلاً بالای ${formatCurrency(targetUpsell)}) می‌توانید میانگین سبد خرید را افزایش دهید.`
+        );
+      }
+
+      const categories = Object.entries(stats.categoryProfit);
+      if (categories.length > 0) {
+        categories.sort((a, b) => b[1].profit - a[1].profit);
+        const topCat = categories[0];
+        recommendations.push(
+          `دسته‌بندی «${topCat[0]}» بالاترین بازدهی را با ${formatCurrency(topCat[1].profit)} سود به خود اختصاص داده است. توسعه تنوع کالایی این دسته توصیه می‌شود.`
+        );
+      }
+    } else {
+      recommendations.push("جهت دریافت تحلیل‌های هوشمند الگوریتمی، فاکتورهای جدیدی در این بازه زمانی ثبت کنید.");
+    }
+
+    return {
+      dayStats,
+      hourStats,
+      topDay,
+      topHour,
+      avgBasket,
+      avgProfit,
+      totalInvoices,
+      recommendations
+    };
+  }, [filteredInvoices, stats.categoryProfit]);
+
   const handleDeleteInvoice = (id: string) => {
     db.deleteInvoice(id);
     setViewingInvoice(null);
@@ -464,6 +590,165 @@ const Reports: React.FC = () => {
           <h4 className="text-3xl font-black text-white font-mono">{formatCurrency(stats.netProfit)}</h4>
         </div>
       </div>
+
+      {/* Advanced Algorithmic Analytics & Managerial Recommendations */}
+      <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-8 shadow-sm space-y-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
+          <div className="space-y-1">
+            <h4 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-3">
+              <span className="p-2.5 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-2xl text-xl">💡</span>
+              آنالیز پیشرفته هوشمند و پیشنهادهای مدیریتی
+            </h4>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              تحلیل الگوریتمی رفتار خرید مشتریان، ساعات پربازده و راهکارهای عملی افزایش سود
+            </p>
+          </div>
+          <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 px-4 py-2 rounded-2xl">
+            <span className="text-xs font-black text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+              تحلیل الگوریتمی زنده ({analyticsData.totalInvoices} فاکتور)
+            </span>
+          </div>
+        </div>
+
+        {/* 4 Analytics Metrics Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 p-6 rounded-3xl space-y-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">🌟 پرسودترین روز هفته</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-xl font-black text-slate-800 dark:text-white">{analyticsData.topDay.name}</span>
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                {analyticsData.topDay.profit > 0 ? formatCurrency(analyticsData.topDay.profit) : '---'}
+              </span>
+            </div>
+            <p className="text-[10px] font-bold text-slate-400">تعداد فاکتور: {analyticsData.topDay.count}</p>
+          </div>
+
+          <div className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 p-6 rounded-3xl space-y-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">⏰ پیک ساعات فروش</span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-black text-slate-800 dark:text-white">{analyticsData.topHour.label}</span>
+              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 font-mono">
+                {analyticsData.topHour.profit > 0 ? formatCurrency(analyticsData.topHour.profit) : '---'}
+              </span>
+            </div>
+            <p className="text-[10px] font-bold text-slate-400">تعداد تراکنش: {analyticsData.topHour.count}</p>
+          </div>
+
+          <div className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 p-6 rounded-3xl space-y-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">🛒 میانگین ارزش فاکتور</span>
+            <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono block">
+              {formatCurrency(analyticsData.avgBasket)}
+            </span>
+            <p className="text-[10px] font-bold text-slate-400">متوسط مبلغ هر سبد خرید</p>
+          </div>
+
+          <div className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 p-6 rounded-3xl space-y-2">
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">💰 میانگین سود هر فاکتور</span>
+            <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono block">
+              {formatCurrency(analyticsData.avgProfit)}
+            </span>
+            <p className="text-[10px] font-bold text-slate-400">متوسط سود خالص دریافتی</p>
+          </div>
+        </div>
+
+        {/* Breakdown Visuals & Managerial Recommendations Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column: Days & Hours Breakdown */}
+          <div className="lg:col-span-5 bg-slate-50/50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 p-6 rounded-3xl space-y-6">
+            <div className="space-y-4">
+              <h5 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                <span>📅</span> سهم سوددهی روزهای هفته
+              </h5>
+              <div className="space-y-2.5">
+                {Object.entries(analyticsData.dayStats).map(([day, val]) => {
+                  const maxDayProfit = Math.max(1, ...Object.values(analyticsData.dayStats).map(d => d.profit));
+                  const pct = Math.min(100, (val.profit / maxDayProfit) * 100);
+                  const isTop = day === analyticsData.topDay.name;
+                  return (
+                    <div key={day} className="space-y-1">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className={`text-slate-700 dark:text-slate-300 ${isTop ? 'font-black text-blue-600 dark:text-blue-400' : ''}`}>
+                          {day} {isTop ? '⭐' : ''}
+                        </span>
+                        <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                          {formatCurrency(val.profit)}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-200/60 dark:bg-slate-700/60 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-700 ${isTop ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-400 dark:bg-slate-600'}`}
+                          style={{ width: `${val.profit > 0 ? pct : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-200/60 dark:border-slate-700/60 space-y-4">
+              <h5 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                <span>⏰</span> تحلیل ترافیک ساعات روز
+              </h5>
+              <div className="space-y-2">
+                {Object.entries(analyticsData.hourStats).map(([key, slot]) => {
+                  const maxHourProfit = Math.max(1, ...Object.values(analyticsData.hourStats).map(h => h.profit));
+                  const pct = Math.min(100, (slot.profit / maxHourProfit) * 100);
+                  const isTop = slot.label === analyticsData.topHour.label;
+                  return (
+                    <div key={key} className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-slate-600 dark:text-slate-400">{slot.label}</span>
+                        <span className="font-mono text-slate-500">{formatCurrency(slot.profit)} ({slot.count} فاکتور)</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-200/60 dark:bg-slate-700/60 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-700 ${isTop ? 'bg-indigo-600 dark:bg-indigo-400' : 'bg-slate-300 dark:bg-slate-600'}`}
+                          style={{ width: `${slot.profit > 0 ? pct : 0}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Recommendations Card */}
+          <div className="lg:col-span-7 bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 text-white p-8 rounded-3xl space-y-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute -top-12 -left-12 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <div className="space-y-6 relative z-10">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                <span className="text-2xl">🎯</span>
+                <div>
+                  <h5 className="text-lg font-black text-white">پیشنهادهای هوشمند مدیریتی</h5>
+                  <p className="text-xs text-indigo-200/80 font-bold mt-0.5">اقدامات کلیدی استخراج شده برای بهبود عملکرد فروش و سودآوری</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {analyticsData.recommendations.map((rec, idx) => (
+                  <div key={idx} className="flex items-start gap-3 bg-white/5 hover:bg-white/10 border border-white/10 p-4 rounded-2xl transition-all">
+                    <span className="text-base mt-0.5">
+                      {idx === 0 ? '🚀' : idx === 1 ? '⚡' : idx === 2 ? '💎' : '📌'}
+                    </span>
+                    <p className="text-xs font-bold text-slate-200 leading-relaxed">
+                      {rec}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-white/10 relative z-10 flex flex-wrap justify-between items-center text-[10px] text-slate-400 font-bold gap-2">
+              <span>سیستم هوشمند تحلیل کسب‌وکار پلاستیک‌بان</span>
+              <span className="text-indigo-300">بروزرسانی بر اساس فاکتورهای فعلی</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Category Performance */}
