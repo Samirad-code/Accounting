@@ -30,7 +30,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "identifier": "com.plasticban.accounting",
     "publisher": "PlasticBan"
   },
   "productName": "PlasticBan-Accounting",
